@@ -1,0 +1,119 @@
+name: ${COMPOSE_PROJECT_NAME:-airflow-prod}
+
+x-airflow-common: &airflow-common
+  image: ${AIRFLOW_IMAGE_NAME:-local/airflow:3.1.6}
+  build:
+    context: .
+    dockerfile: Dockerfile
+    args:
+      AIRFLOW_VERSION: ${AIRFLOW_VERSION:-3.1.6}
+  env_file:
+    - .env
+  environment: &airflow-env
+    # Core executor / database
+    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_POSTGRES_USER:-airflow}:${AIRFLOW_POSTGRES_PASSWORD:-airflow}@airflow-postgres:5432/${AIRFLOW_POSTGRES_DB:-airflow}
+
+    # Celery broker / backend
+    AIRFLOW__CELERY__BROKER_URL: redis://:${AIRFLOW_REDIS_PASSWORD:-change-me}@airflow-redis:6379/0
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${AIRFLOW_POSTGRES_USER:-airflow}:${AIRFLOW_POSTGRES_PASSWORD:-airflow}@airflow-postgres:5432/${AIRFLOW_POSTGRES_DB:-airflow}
+
+    # Airflow 3 execution API. Scheduler and workers must reach the in-cluster API server.
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-api-server:8080/execution/
+
+    # Security. Keep these identical across every Airflow component.
+    AIRFLOW__CORE__FERNET_KEY: ${FERNET_KEY:?set FERNET_KEY in .env}
+    AIRFLOW__API__SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
+    AIRFLOW__API_AUTH__JWT_SECRET: ${JWT_SECRET:-${SECRET_KEY}}
+
+    # Runtime settings
+    AIRFLOW__LOGGING__LOGGING_LEVEL: ${AIRFLOW_LOGGING_LEVEL:-INFO}
+    AIRFLOW__CORE__DEFAULT_TIMEZONE: ${AIRFLOW_TIMEZONE:-Asia/Shanghai}
+    TZ: ${TZ:-Asia/Shanghai}
+
+  volumes:
+    - airflow_logs:/opt/airflow/logs
+
+  user: "${AIRFLOW_UID:-50000}:0"
+
+  depends_on:
+    airflow-postgres:
+      condition: service_healthy
+    airflow-redis:
+      condition: service_healthy
+
+services:
+  airflow-redis:
+    image: redis:7.2
+    command: ["redis-server", "--requirepass", "${AIRFLOW_REDIS_PASSWORD:-change-me}", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${AIRFLOW_REDIS_PASSWORD:-change-me}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  airflow-postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${AIRFLOW_POSTGRES_USER:-airflow}
+      POSTGRES_PASSWORD: ${AIRFLOW_POSTGRES_PASSWORD:-airflow}
+      POSTGRES_DB: ${AIRFLOW_POSTGRES_DB:-airflow}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AIRFLOW_POSTGRES_USER:-airflow} -d ${AIRFLOW_POSTGRES_DB:-airflow}"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  airflow-init:
+    <<: *airflow-common
+    command: bash -lc "airflow db migrate"
+    restart: "no"
+
+  airflow-api-server:
+    <<: *airflow-common
+    command: api-server
+    ports:
+      - "${AIRFLOW_API_PORT:-18081}:8080"
+    restart: unless-stopped
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    restart: unless-stopped
+
+  airflow-worker:
+    <<: *airflow-common
+    command: celery worker
+    restart: unless-stopped
+
+  airflow-triggerer:
+    <<: *airflow-common
+    command: triggerer
+    restart: unless-stopped
+
+  airflow-dag-processor:
+    <<: *airflow-common
+    command: dag-processor
+    restart: unless-stopped
+
+  flower:
+    <<: *airflow-common
+    command: celery flower
+    ports:
+      - "${AIRFLOW_FLOWER_PORT:-5555}:5555"
+    profiles: ["flower"]
+    restart: unless-stopped
+
+volumes:
+  airflow_logs:
+  postgres_data:
+  redis_data:

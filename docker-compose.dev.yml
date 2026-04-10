@@ -1,0 +1,29 @@
+name: ${COMPOSE_PROJECT_NAME:-airflow-dev}
+
+x-airflow-dev-volumes: &airflow-dev-volumes
+  - ./dags:/opt/airflow/dags
+  - ./plugins:/opt/airflow/plugins
+  - ./config:/opt/airflow/config
+  - ./logs:/opt/airflow/logs
+
+services:
+  airflow-init:
+    volumes: *airflow-dev-volumes
+
+  airflow-api-server:
+    volumes: *airflow-dev-volumes
+
+  airflow-scheduler:
+    volumes: *airflow-dev-volumes
+
+  airflow-worker:
+    volumes: *airflow-dev-volumes
+
+  airflow-triggerer:
+    volumes: *airflow-dev-volumes
+
+  airflow-dag-processor:
+    volumes: *airflow-dev-volumes
+
+  flower:
+    volumes: *airflow-dev-volumes
