@@ -13,6 +13,7 @@ Production uses one immutable Airflow image for every Airflow component:
 - Local bind mounts are only used by `docker-compose.dev.yml`.
 - Secrets stay in `.env` or a production secret manager, not in the image.
 - `docker-compose.yml` is runtime-only; `docker-compose.build.yml` is used only when building the image locally.
+- Playwright system dependencies and Chromium are installed by the image; browsers live under `/ms-playwright` with shared read/execute permissions, and the Python `playwright` package must come from `requirements.txt` or your wheel dependencies.
 
 ## First-Time Setup
 
@@ -29,6 +30,11 @@ Edit `.env` and set strong values for:
 - `FERNET_KEY`
 - `SECRET_KEY`
 - `JWT_SECRET`
+
+Optional build acceleration:
+
+- `PIP_INDEX_URL`
+- `PIP_TRUSTED_HOST`
 
 Generate a Fernet key:
 
@@ -124,5 +130,5 @@ docker compose up -d
 - Do not commit `.env`.
 - Postgres and Redis are not exposed to the host by default.
 - Put DAG-specific Python packages in `requirements.txt`.
-- Add OS packages to `Dockerfile` only when a DAG dependency actually needs them.
+- Keep `playwright` in `requirements.txt` or your wheel dependencies when DAG code uses browser automation.
 - Use `docker compose --profile flower up -d flower` only when you need Flower.
