@@ -8,6 +8,8 @@
 !.env.example
 
 logs/
+dags/*
+!dags/.gitkeep
 config/**/*.yaml
 !config/**/*.example.yaml
 wheels/*
