@@ -14,11 +14,6 @@ logs/
 config/**/*.yaml
 !config/**/*.example.yaml
 plugins/.DS_Store
-projects/**/.venv/
-projects/**/venv/
-projects/**/dist/
-projects/**/build/
-projects/**/*.egg-info/
 !wheels/
 !wheels/.gitkeep
 !wheels/*.whl

@@ -10,10 +10,5 @@
 logs/
 config/**/*.yaml
 !config/**/*.example.yaml
-projects/**/.venv/
-projects/**/venv/
-projects/**/dist/
-projects/**/build/
-projects/**/*.egg-info/
 wheels/*
 !wheels/.gitkeep

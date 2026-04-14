@@ -8,11 +8,11 @@ Production uses one immutable Airflow image for every Airflow component:
 
 - Python dependencies are installed from `requirements.txt` at image build time.
 - Wheels under `wheels/` are installed at image build time.
-- Local Python projects under `projects/` are also installed at image build time when they contain `pyproject.toml` or `setup.py`; use this as a fallback or for local development.
 - `dags/`, `plugins/`, and `config/` are copied into the image.
 - Runtime state uses Docker named volumes.
 - Local bind mounts are only used by `docker-compose.dev.yml`.
 - Secrets stay in `.env` or a production secret manager, not in the image.
+- `docker-compose.yml` is runtime-only; `docker-compose.build.yml` is used only when building the image locally.
 
 ## First-Time Setup
 
@@ -55,20 +55,8 @@ Copy the generated `.whl` file into `wheels/`, then rebuild the Airflow image:
 
 ```bash
 cp /path/to/my_python_project/dist/*.whl wheels/
-docker compose build
+docker compose -f docker-compose.yml -f docker-compose.build.yml build
 docker compose up -d
-```
-
-As a source-package fallback, put Python project code under `projects/`:
-
-```text
-projects/
-  my_python_project/
-    pyproject.toml
-    src/
-      my_python_project/
-        __init__.py
-        job.py
 ```
 
 Keep DAG files thin and import the package:
@@ -91,7 +79,7 @@ dag = my_job()
 First-time build and start:
 
 ```bash
-docker compose build
+docker compose -f docker-compose.yml -f docker-compose.build.yml build
 docker compose up airflow-init
 docker compose up -d
 ```
@@ -113,7 +101,8 @@ Read the generated Simple Auth Manager password:
 Use the dev override when you want Airflow to hot-load local edits:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.build.yml build
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 ```
 
 The dev override bind-mounts:
@@ -123,10 +112,10 @@ The dev override bind-mounts:
 - `./config` to `/opt/airflow/config`
 - `./logs` to `/opt/airflow/logs`
 
-When you change wheel artifacts, code under `projects/`, or `requirements.txt`, rebuild the image:
+When you change wheel artifacts or `requirements.txt`, rebuild the image:
 
 ```bash
-docker compose build
+docker compose -f docker-compose.yml -f docker-compose.build.yml build
 docker compose up -d
 ```
 

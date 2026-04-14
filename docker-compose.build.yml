@@ -1,0 +1,49 @@
+services:
+  airflow-init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        AIRFLOW_VERSION: ${AIRFLOW_VERSION:-3.1.6}
+
+  airflow-api-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        AIRFLOW_VERSION: ${AIRFLOW_VERSION:-3.1.6}
+
+  airflow-scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        AIRFLOW_VERSION: ${AIRFLOW_VERSION:-3.1.6}
+
+  airflow-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        AIRFLOW_VERSION: ${AIRFLOW_VERSION:-3.1.6}
+
+  airflow-triggerer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        AIRFLOW_VERSION: ${AIRFLOW_VERSION:-3.1.6}
+
+  airflow-dag-processor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        AIRFLOW_VERSION: ${AIRFLOW_VERSION:-3.1.6}
+
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        AIRFLOW_VERSION: ${AIRFLOW_VERSION:-3.1.6}
