@@ -6,6 +6,10 @@ ARG PIP_TRUSTED_HOST=pypi.tuna.tsinghua.edu.cn
 ARG APT_MIRROR_HOST=mirrors.tuna.tsinghua.edu.cn
 FROM apache/airflow:${AIRFLOW_VERSION}
 
+ARG PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+ARG PIP_TRUSTED_HOST=pypi.tuna.tsinghua.edu.cn
+ARG APT_MIRROR_HOST=mirrors.tuna.tsinghua.edu.cn
+
 USER root
 
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
