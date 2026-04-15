@@ -33,6 +33,7 @@ Edit `.env` and set strong values for:
 
 Optional build acceleration:
 
+- `APT_MIRROR_HOST`
 - `PIP_INDEX_URL`
 - `PIP_TRUSTED_HOST`
 

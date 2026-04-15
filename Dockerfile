@@ -3,6 +3,7 @@
 ARG AIRFLOW_VERSION=3.1.8
 ARG PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 ARG PIP_TRUSTED_HOST=pypi.tuna.tsinghua.edu.cn
+ARG APT_MIRROR_HOST=mirrors.tuna.tsinghua.edu.cn
 FROM apache/airflow:${AIRFLOW_VERSION}
 
 USER root
@@ -10,6 +11,9 @@ USER root
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV PIP_INDEX_URL=${PIP_INDEX_URL}
 ENV PIP_TRUSTED_HOST=${PIP_TRUSTED_HOST}
+
+# Switch Debian sources to a configurable mirror to speed up apt in CN networks.
+RUN sed -i "s|http://deb.debian.org|https://${APT_MIRROR_HOST}|g; s|http://security.debian.org|https://${APT_MIRROR_HOST}|g" /etc/apt/sources.list.d/debian.sources
 
 # Playwright browser runtime dependencies for Debian-based Airflow images.
 RUN apt-get update \

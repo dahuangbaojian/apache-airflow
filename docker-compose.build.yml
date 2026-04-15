@@ -7,5 +7,6 @@ services:
       dockerfile: Dockerfile
       args:
         AIRFLOW_VERSION: ${AIRFLOW_VERSION:-3.1.8}
+        APT_MIRROR_HOST: ${APT_MIRROR_HOST:-mirrors.tuna.tsinghua.edu.cn}
         PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
         PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-pypi.tuna.tsinghua.edu.cn}
