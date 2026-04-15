@@ -1,63 +1,11 @@
 services:
-  airflow-init:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        AIRFLOW_VERSION: ${AIRFLOW_VERSION:-3.1.6}
-        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
-        PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-pypi.tuna.tsinghua.edu.cn}
-
+  # Build the shared Airflow image once. All runtime services use the same image tag
+  # from docker-compose.yml, so they will reuse the result of this build.
   airflow-api-server:
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        AIRFLOW_VERSION: ${AIRFLOW_VERSION:-3.1.6}
-        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
-        PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-pypi.tuna.tsinghua.edu.cn}
-
-  airflow-scheduler:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        AIRFLOW_VERSION: ${AIRFLOW_VERSION:-3.1.6}
-        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
-        PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-pypi.tuna.tsinghua.edu.cn}
-
-  airflow-worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        AIRFLOW_VERSION: ${AIRFLOW_VERSION:-3.1.6}
-        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
-        PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-pypi.tuna.tsinghua.edu.cn}
-
-  airflow-triggerer:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        AIRFLOW_VERSION: ${AIRFLOW_VERSION:-3.1.6}
-        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
-        PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-pypi.tuna.tsinghua.edu.cn}
-
-  airflow-dag-processor:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        AIRFLOW_VERSION: ${AIRFLOW_VERSION:-3.1.6}
-        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
-        PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-pypi.tuna.tsinghua.edu.cn}
-
-  flower:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        AIRFLOW_VERSION: ${AIRFLOW_VERSION:-3.1.6}
+        AIRFLOW_VERSION: ${AIRFLOW_VERSION:-3.1.8}
         PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
         PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-pypi.tuna.tsinghua.edu.cn}

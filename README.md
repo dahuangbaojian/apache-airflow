@@ -12,7 +12,7 @@ Production uses one immutable Airflow image for every Airflow component:
 - Runtime state uses Docker named volumes.
 - Local bind mounts are only used by `docker-compose.dev.yml`.
 - Secrets stay in `.env` or a production secret manager, not in the image.
-- `docker-compose.yml` is runtime-only; `docker-compose.build.yml` is used only when building the image locally.
+- `docker-compose.yml` is runtime-only; `docker-compose.build.yml` builds the shared Airflow image through `airflow-api-server`, and all other services reuse the same image tag.
 - Playwright system dependencies and Chromium are installed by the image; browsers live under `/ms-playwright` with shared read/execute permissions, and the Python `playwright` package must come from `requirements.txt` or your wheel dependencies.
 
 ## First-Time Setup
@@ -61,7 +61,7 @@ Copy the generated `.whl` file into `wheels/`, then rebuild the Airflow image:
 
 ```bash
 cp /path/to/my_python_project/dist/*.whl wheels/
-docker compose -f docker-compose.yml -f docker-compose.build.yml build
+docker compose -f docker-compose.yml -f docker-compose.build.yml build airflow-api-server
 docker compose up -d
 ```
 
@@ -85,7 +85,7 @@ dag = my_job()
 First-time build and start:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.build.yml build
+docker compose -f docker-compose.yml -f docker-compose.build.yml build airflow-api-server
 docker compose up airflow-init
 docker compose up -d
 ```
@@ -107,7 +107,7 @@ Read the generated Simple Auth Manager password:
 Use the dev override when you want Airflow to hot-load local edits:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.build.yml build
+docker compose -f docker-compose.yml -f docker-compose.build.yml build airflow-api-server
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 ```
 
@@ -121,7 +121,7 @@ The dev override bind-mounts:
 When you change wheel artifacts or `requirements.txt`, rebuild the image:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.build.yml build
+docker compose -f docker-compose.yml -f docker-compose.build.yml build airflow-api-server
 docker compose up -d
 ```
 

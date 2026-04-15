@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-ARG AIRFLOW_VERSION=3.1.6
+ARG AIRFLOW_VERSION=3.1.8
 ARG PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 ARG PIP_TRUSTED_HOST=pypi.tuna.tsinghua.edu.cn
 FROM apache/airflow:${AIRFLOW_VERSION}
