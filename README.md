@@ -1,135 +1,171 @@
-# Airflow Docker Compose Deployment
+# Airflow Docker Compose Ops
 
-This Compose project runs Airflow 3 with CeleryExecutor, Postgres, Redis, and a custom Airflow image.
+Airflow 3 with CeleryExecutor, Postgres, Redis, and a custom image.
 
-## Deployment Model
+## Model
 
-Production uses one immutable Airflow image for every Airflow component:
+- Build in test/CI
+- Push image to Harbor
+- Production only `pull` and `up -d`
+- Business code enters the image through `wheels/`
+- DAG files under `dags/` are copied into the image
 
-- Python dependencies are installed from `requirements.txt` at image build time.
-- Wheels under `wheels/` are installed at image build time.
-- `dags/`, `plugins/`, and `config/` are copied into the image.
-- Runtime state uses Docker named volumes.
-- Local bind mounts are only used by `docker-compose.dev.yml`.
-- Secrets stay in `.env` or a production secret manager, not in the image.
-- `docker-compose.yml` is runtime-only; `docker-compose.build.yml` builds the shared Airflow image through `airflow-api-server`, and all other services reuse the same image tag.
-- Playwright system dependencies and Chromium are installed by the image; browsers live under `/ms-playwright` with shared read/execute permissions, and the Python `playwright` package must come from `requirements.txt` or your wheel dependencies.
+## Files
 
-## First-Time Setup
+- `docker-compose.yml`: runtime
+- `docker-compose.build.yml`: build only
+- `Dockerfile`: custom image
+- `.env.example`: env template
+- `admin-password.sh`: print admin password
 
-Create the environment file:
+## Required Runtime Env
 
-```bash
-cp .env.example .env
+```env
+AIRFLOW_IMAGE_NAME=harbor.example.com/team/airflow:3.1.8-YYYYMMDD
+AIRFLOW_UID=50000
+
+AIRFLOW_POSTGRES_USER=airflow
+AIRFLOW_POSTGRES_PASSWORD=replace-me
+AIRFLOW_POSTGRES_DB=airflow
+AIRFLOW_REDIS_PASSWORD=replace-me
+
+FERNET_KEY=replace-me
+SECRET_KEY=replace-me
+JWT_SECRET=replace-me
+
+AIRFLOW_API_PORT=18081
+AIRFLOW_TIMEZONE=Asia/Shanghai
+TZ=Asia/Shanghai
+AIRFLOW_LOGGING_LEVEL=INFO
 ```
 
-Edit `.env` and set strong values for:
+Apollo example:
 
-- `AIRFLOW_POSTGRES_PASSWORD`
-- `AIRFLOW_REDIS_PASSWORD`
-- `FERNET_KEY`
-- `SECRET_KEY`
-- `JWT_SECRET`
-
-Optional build acceleration:
-
-- `APT_MIRROR_HOST`
-- `PIP_INDEX_URL`
-- `PIP_TRUSTED_HOST`
-
-Generate a Fernet key:
-
-```bash
-python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```env
+APOLLO_APP_ID=datacenter-task
+APOLLO_CONFIG_SERVICE_URL=http://apollo.example.com:8080
+APOLLO_CLUSTER=default
+APOLLO_NAMESPACES=application
 ```
 
-## Production Run
+`APOLLO_CONFIG_SERVICE_URL` only needs the service root.
 
-Prefer wheel artifacts for Python project releases:
+## Build Env
 
-```text
-wheels/
-  my_python_project-1.0.0-py3-none-any.whl
+Used only when building:
+
+```env
+AIRFLOW_VERSION=3.1.8
+APT_MIRROR_HOST=mirrors.tuna.tsinghua.edu.cn
+PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+PIP_TRUSTED_HOST=pypi.tuna.tsinghua.edu.cn
 ```
 
-Build the wheel in the Python project repository:
-
-```bash
-python -m build
-```
-
-Copy the generated `.whl` file into `wheels/`, then rebuild the Airflow image:
-
-```bash
-cp /path/to/my_python_project/dist/*.whl wheels/
-docker compose -f docker-compose.yml -f docker-compose.build.yml build airflow-api-server
-docker compose up -d
-```
-
-Keep DAG files thin and import the package:
-
-```python
-from airflow.sdk import dag, task
-from my_python_project.job import run_job
-
-@dag(schedule=None, catchup=False)
-def my_job():
-    @task
-    def run():
-        run_job()
-
-    run()
-
-dag = my_job()
-```
-
-First-time build and start:
+## Build and Push
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.build.yml build airflow-api-server
+docker tag local/airflow:3.1.8 harbor.example.com/team/airflow:3.1.8-YYYYMMDD
+docker login harbor.example.com
+docker push harbor.example.com/team/airflow:3.1.8-YYYYMMDD
+```
+
+Use immutable tags such as date, build number, or commit SHA.
+
+## First Deployment
+
+```bash
+docker compose pull
 docker compose up airflow-init
 docker compose up -d
 ```
 
-Open Airflow at:
+## Normal Release
+
+1. Update `AIRFLOW_IMAGE_NAME` in `.env`
+2. Run:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+If the image includes Airflow schema changes:
+
+```bash
+docker compose up airflow-init
+```
+
+## Rollback
+
+1. Set `AIRFLOW_IMAGE_NAME` back to the previous tag
+2. Run:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+## Safer Release
+
+If tasks are running, update more carefully:
+
+```bash
+docker compose stop airflow-scheduler
+# wait for running tasks to finish
+docker compose pull
+docker compose up -d
+docker compose start airflow-scheduler
+```
+
+## Access
+
+Airflow UI:
 
 ```text
 http://localhost:18081
 ```
 
-Read the generated Simple Auth Manager password:
+Admin password:
 
 ```bash
-./admin-password.sh
+bash admin-password.sh
 ```
 
-## Development Run
-
-Use the dev override when you want Airflow to hot-load local edits:
+## Common Commands
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.build.yml build airflow-api-server
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+docker compose ps
+docker compose logs --tail=200 airflow-api-server
+docker compose logs --tail=200 airflow-scheduler
+docker compose logs --tail=200 airflow-worker
+docker compose logs --tail=200 airflow-dag-processor
 ```
 
-The dev override bind-mounts:
+## Troubleshooting
 
-- `./dags` to `/opt/airflow/dags`
-- `./plugins` to `/opt/airflow/plugins`
-- `./config` to `/opt/airflow/config`
-- `./logs` to `/opt/airflow/logs`
+Database URL parse errors such as `123!@airflow-postgres`:
 
-When you change wheel artifacts or `requirements.txt`, rebuild the image:
+- Postgres password likely contains URI-special characters
+- Avoid `@ : / ? # %`
+
+Harbor push fails with `no basic auth credentials`:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.build.yml build airflow-api-server
-docker compose up -d
+docker login harbor.example.com
 ```
 
-## Notes
+Harbor pull fails:
 
-- Do not commit `.env`.
-- Postgres and Redis are not exposed to the host by default.
-- Put DAG-specific Python packages in `requirements.txt`.
-- Keep `playwright` in `requirements.txt` or your wheel dependencies when DAG code uses browser automation.
-- Use `docker compose --profile flower up -d flower` only when you need Flower.
+```bash
+getent hosts harbor.example.com
+curl -vk https://harbor.example.com/v2/
+nc -vz harbor.example.com 443
+nc -vz harbor.example.com 80
+```
+
+Build is slow:
+
+- `apt-get`: check `APT_MIRROR_HOST`
+- `pip install`: check `PIP_INDEX_URL`
+- `playwright install chromium`: browser download is usually the remaining bottleneck
