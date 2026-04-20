@@ -57,15 +57,15 @@ USER airflow
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
+RUN python -c "import importlib.util; assert importlib.util.find_spec('playwright'), 'playwright is not installed. Add it to requirements.txt.'" \
+    && playwright install chromium
+
 COPY --chown=airflow:0 wheels /tmp/wheels
 RUN find /tmp/wheels -maxdepth 1 -type f -name "*.whl" \
     | sort \
     | while IFS= read -r wheel; do \
     pip install --no-cache-dir "$wheel"; \
     done
-
-RUN python -c "import importlib.util; assert importlib.util.find_spec('playwright'), 'playwright is not installed. Add it to requirements.txt or wheel dependencies.'" \
-    && playwright install chromium
 
 USER root
 RUN chmod -R 755 /ms-playwright

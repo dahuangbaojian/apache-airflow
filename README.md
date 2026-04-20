@@ -205,4 +205,4 @@ Build is slow:
 
 - `apt-get`: check `APT_MIRROR_HOST`
 - `pip install`: check `PIP_INDEX_URL`
-- `playwright install chromium`: browser download is usually the remaining bottleneck
+- `playwright install chromium`: browser download is usually the remaining bottleneck. Keep `playwright` pinned in `requirements.txt` so this layer stays cached when only wheels change.
