@@ -9,6 +9,7 @@ Airflow 3 with CeleryExecutor, Postgres, Redis, and a custom image.
 - Production only `pull` and `up -d`
 - Business code enters the image through `wheels/`
 - DAG files under `dags/` are copied into the image
+- Spark task submission is supported through Airflow's Spark provider
 
 ## Files
 
@@ -59,6 +60,42 @@ AIRFLOW_VERSION=3.1.8
 APT_MIRROR_HOST=mirrors.tuna.tsinghua.edu.cn
 PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 PIP_TRUSTED_HOST=pypi.tuna.tsinghua.edu.cn
+```
+
+## Spark Support
+
+The image includes:
+
+- `apache-airflow-providers-apache-spark`
+- `pyspark`
+- Java runtime
+
+This supports submitting jobs from Airflow to an existing Spark cluster.
+
+Before using Spark DAGs:
+
+1. Make sure `pyspark` matches the Spark cluster minor version
+2. Create an Airflow Spark connection such as `spark_default`
+3. Point that connection to your Spark master, YARN, or Kubernetes entrypoint
+
+Minimal DAG example:
+
+```python
+from airflow import DAG
+from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
+from datetime import datetime
+
+with DAG(
+    dag_id="spark_submit_example",
+    start_date=datetime(2025, 1, 1),
+    schedule=None,
+    catchup=False,
+) as dag:
+    SparkSubmitOperator(
+        task_id="run_spark_job",
+        conn_id="spark_default",
+        application="/opt/spark/jobs/example.py",
+    )
 ```
 
 ## Build and Push

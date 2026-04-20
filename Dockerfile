@@ -45,6 +45,7 @@ RUN apt-get update \
     libxkbcommon0 \
     libxrandr2 \
     libxshmfence1 \
+    openjdk-17-jre-headless \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /ms-playwright \

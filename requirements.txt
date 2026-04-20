@@ -1,1 +1,4 @@
-# Add DAG/runtime Python dependencies here, one per line.
+# Airflow runtime dependencies installed into the custom image.
+# Keep PySpark aligned with the Spark cluster minor version.
+apache-airflow-providers-apache-spark==5.6.0
+pyspark==3.5.8
