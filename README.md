@@ -64,7 +64,8 @@ APOLLO_NAMESPACES=application
 For Celery task log streaming, `docker-compose.yml` also sets:
 
 - `AIRFLOW__LOGGING__WORKER_LOG_SERVER_PORT=${AIRFLOW_WORKER_LOG_SERVER_PORT:-8793}`
-- `AIRFLOW__CORE__HOSTNAME_CALLABLE=airflow.utils.net.get_host_ip_address`
+- `AIRFLOW__CORE__HOSTNAME_CALLABLE=socket.getfqdn`
+- `hostname: airflow-worker` on the worker service
 
 This avoids broken worker log URLs such as `http://:8793/...` when Airflow cannot derive a usable container hostname.
 
