@@ -38,6 +38,7 @@ AIRFLOW_API_PORT=18081
 AIRFLOW_TIMEZONE=Asia/Shanghai
 TZ=Asia/Shanghai
 AIRFLOW_LOGGING_LEVEL=INFO
+AIRFLOW_WORKER_LOG_SERVER_PORT=8793
 SPARK_MASTER_URL=spark://host.docker.internal:7077
 SPARK_DEPLOY_MODE=client
 ICEBERG_CATALOG_NAME=iceberg_local
@@ -59,6 +60,13 @@ APOLLO_NAMESPACES=application
 ```
 
 `APOLLO_CONFIG_SERVICE_URL` only needs the service root.
+
+For Celery task log streaming, `docker-compose.yml` also sets:
+
+- `AIRFLOW__LOGGING__WORKER_LOG_SERVER_PORT=${AIRFLOW_WORKER_LOG_SERVER_PORT:-8793}`
+- `AIRFLOW__CORE__HOSTNAME_CALLABLE=airflow.utils.net.get_host_ip_address`
+
+This avoids broken worker log URLs such as `http://:8793/...` when Airflow cannot derive a usable container hostname.
 
 ## Build Env
 
