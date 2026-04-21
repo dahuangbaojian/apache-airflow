@@ -43,39 +43,18 @@ def build_spark_session(app_name: str, catalog_name: str) -> SparkSession:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Write a small dataset into an Iceberg table and read it back.")
+    parser = argparse.ArgumentParser(description="Show namespaces from an Iceberg catalog.")
     parser.add_argument("--catalog", default=_env("ICEBERG_CATALOG_NAME", "iceberg_local"))
-    parser.add_argument("--namespace", default=_env("ICEBERG_NAMESPACE", "demo"))
-    parser.add_argument("--table", default=_env("ICEBERG_TABLE", "events"))
-    parser.add_argument("--app-name", default="airflow-iceberg-smoke")
+    parser.add_argument("--app-name", default="airflow-iceberg-namespace-check")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     spark = build_spark_session(args.app_name, args.catalog)
-    full_namespace = f"{args.catalog}.{args.namespace}"
-    full_table_name = f"{full_namespace}.{args.table}"
-
-    spark.sql(f"CREATE NAMESPACE IF NOT EXISTS {full_namespace}")
-
-    rows = [
-        (1, "signup", "2026-01-01T00:00:00"),
-        (2, "purchase", "2026-01-01T00:05:00"),
-        (3, "refund", "2026-01-01T00:10:00"),
-    ]
-    df = spark.createDataFrame(rows, ["event_id", "event_type", "event_ts"])
-
-    (
-        df.writeTo(full_table_name)
-        .using("iceberg")
-        .tableProperty("format-version", "2")
-        .createOrReplace()
-    )
-
-    result = spark.read.table(full_table_name).orderBy("event_id")
-    result.show(truncate=False)
-    print(f"Wrote {result.count()} rows to {full_table_name}")
+    namespaces = spark.sql(f"SHOW NAMESPACES IN {args.catalog}")
+    namespaces.show(truncate=False)
+    print(f"Listed namespaces from Iceberg catalog {args.catalog}")
     spark.stop()
 
 

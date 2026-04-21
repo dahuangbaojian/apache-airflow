@@ -23,8 +23,6 @@ def _task_env() -> dict[str, str]:
         "ICEBERG_CATALOG_NAME",
         "ICEBERG_CATALOG_TYPE",
         "ICEBERG_WAREHOUSE",
-        "ICEBERG_NAMESPACE",
-        "ICEBERG_TABLE",
         "ICEBERG_S3_ENDPOINT",
         "ICEBERG_S3_ACCESS_KEY_ID",
         "ICEBERG_S3_SECRET_ACCESS_KEY",
@@ -50,23 +48,18 @@ with DAG(
     tags=["spark", "iceberg", "standalone"],
 ) as dag:
     SparkSubmitOperator(
-        task_id="iceberg_smoke_test",
+        task_id="show_iceberg_namespaces",
         conn_id="spark_default",
         application="/opt/airflow/dags/jobs/iceberg_smoke.py",
-        name="airflow-iceberg-smoke",
+        name="airflow-iceberg-namespace-check",
         jars=_iceberg_jars(),
         deploy_mode=_env("SPARK_DEPLOY_MODE", "client"),
         env_vars=_task_env(),
         application_args=[
             "--catalog",
             _env("ICEBERG_CATALOG_NAME", "iceberg_local"),
-            "--namespace",
-            _env("ICEBERG_NAMESPACE", "demo"),
-            "--table",
-            _env("ICEBERG_TABLE", "events"),
         ],
         conf={
-            "spark.master": _env("SPARK_MASTER_URL", "spark://host.docker.internal:7077"),
             "spark.sql.extensions": "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions",
         },
     )

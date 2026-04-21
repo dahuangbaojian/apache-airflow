@@ -39,13 +39,10 @@ AIRFLOW_TIMEZONE=Asia/Shanghai
 TZ=Asia/Shanghai
 AIRFLOW_LOGGING_LEVEL=INFO
 SPARK_MASTER_URL=spark://host.docker.internal:7077
-AIRFLOW_CONN_SPARK_DEFAULT=spark://host.docker.internal:7077
 SPARK_DEPLOY_MODE=client
 ICEBERG_CATALOG_NAME=iceberg_local
 ICEBERG_CATALOG_TYPE=hadoop
 ICEBERG_WAREHOUSE=s3://warehouse/iceberg
-ICEBERG_NAMESPACE=demo
-ICEBERG_TABLE=events
 ICEBERG_S3_ENDPOINT=http://minio.example.com:9000
 ICEBERG_S3_ACCESS_KEY_ID=replace-me
 ICEBERG_S3_SECRET_ACCESS_KEY=replace-me
@@ -95,10 +92,12 @@ The Docker build copies them into the `pyspark` `jars/` directory inside the ima
 Before using Spark DAGs:
 
 1. Make sure `pyspark` matches the Spark cluster minor version
-2. Set `SPARK_MASTER_URL` and `AIRFLOW_CONN_SPARK_DEFAULT` in `.env` to the host Spark master address such as `spark://host.docker.internal:7077`
+2. Set `SPARK_MASTER_URL` in `.env` to the host Spark master address such as `spark://host.docker.internal:7077`
 3. Keep the default `SPARK_DEPLOY_MODE=client` unless your cluster nodes cannot reach the Airflow worker container
 4. Set `ICEBERG_WAREHOUSE` to an `s3://...` warehouse path and configure the matching S3-compatible endpoint and credentials
 5. If you upgrade Spark or Iceberg, update `ICEBERG_VERSION` or `ICEBERG_SPARK_RUNTIME_ARTIFACT` in `Dockerfile`, then put the matching jar files into `jars/`
+
+`AIRFLOW_CONN_SPARK_DEFAULT` is still present inside `docker-compose.yml` because Airflow's Spark provider reads connection settings from that environment variable. You do not need to set it in `.env` unless you intentionally want it to differ from `SPARK_MASTER_URL`.
 
 `docker-compose.yml` already injects a Linux-compatible host alias:
 
@@ -142,7 +141,7 @@ If you use standalone Spark and executors cannot connect back to a driver runnin
 Included example files:
 
 - [dags/spark_standalone_iceberg_example.py](/Users/huangjian/docker/apache-airflow/dags/spark_standalone_iceberg_example.py): Airflow DAG that calls `spark-submit`
-- [dags/jobs/iceberg_smoke.py](/Users/huangjian/docker/apache-airflow/dags/jobs/iceberg_smoke.py): PySpark app that creates an Iceberg table, writes a few rows, and reads them back
+- [dags/jobs/iceberg_smoke.py](/Users/huangjian/docker/apache-airflow/dags/jobs/iceberg_smoke.py): PySpark app that runs `SHOW NAMESPACES IN <catalog>`
 
 The DAG submits the two Iceberg jars that are baked into the Airflow image to the standalone cluster using the operator's `jars=` parameter. That means the host Spark workers do not need those jars preinstalled in `SPARK_HOME/jars`.
 
@@ -182,9 +181,15 @@ spark.sql.catalog.iceberg_local.s3.secret-access-key=replace-me
 spark.sql.catalog.iceberg_local.s3.path-style-access=true
 ```
 
+Then it runs:
+
+```sql
+SHOW NAMESPACES IN iceberg_local
+```
+
 Rollout steps:
 
-1. Update `.env` with the real Spark master address and Iceberg storage settings
+1. Update `.env` with the real `SPARK_MASTER_URL` and Iceberg storage settings
 2. Build a new Airflow image because the DAG files are copied into the image at build time:
 
 ```bash
@@ -210,7 +215,7 @@ PY
 ```
 
 5. Trigger `spark_standalone_iceberg_example` from Airflow UI
-6. Check the task log for the `result.show()` output and the final `Wrote ... rows` line
+6. Check the task log for the `SHOW NAMESPACES` output and the final `Listed namespaces from Iceberg catalog ...` line
 
 ## Build and Push
 
