@@ -12,6 +12,9 @@ dags/*
 !dags/.gitkeep
 !dags/python_smoke_test.py
 !dags/spark_submit_smoke_test.py
+!dags/spark_standalone_iceberg_example.py
+!dags/jobs/
+!dags/jobs/iceberg_smoke.py
 !dags/spark_jobs/
 !dags/spark_jobs/smoke_test.py
 config/**/*.yaml

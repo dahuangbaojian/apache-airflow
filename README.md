@@ -39,7 +39,17 @@ AIRFLOW_TIMEZONE=Asia/Shanghai
 TZ=Asia/Shanghai
 AIRFLOW_LOGGING_LEVEL=INFO
 SPARK_MASTER_URL=spark://host.docker.internal:7077
+AIRFLOW_CONN_SPARK_DEFAULT=spark://host.docker.internal:7077
 SPARK_DEPLOY_MODE=client
+ICEBERG_CATALOG_NAME=iceberg_local
+ICEBERG_CATALOG_TYPE=hadoop
+ICEBERG_WAREHOUSE=s3://warehouse/iceberg
+ICEBERG_NAMESPACE=demo
+ICEBERG_TABLE=events
+ICEBERG_S3_ENDPOINT=http://minio.example.com:9000
+ICEBERG_S3_ACCESS_KEY_ID=replace-me
+ICEBERG_S3_SECRET_ACCESS_KEY=replace-me
+ICEBERG_S3_PATH_STYLE_ACCESS=true
 ```
 
 Apollo example:
@@ -73,7 +83,7 @@ The image includes:
 - Java runtime
 - Iceberg runtime jars for Spark and AWS access
 
-This supports submitting jobs from Airflow to an existing Spark cluster.
+This supports submitting jobs from Airflow workers to a Spark standalone cluster running on the Docker host.
 
 Put these files into the repo's [jars/README.md](/Users/huangjian/docker/apache-airflow/jars/README.md) directory before building:
 
@@ -85,9 +95,9 @@ The Docker build copies them into the `pyspark` `jars/` directory inside the ima
 Before using Spark DAGs:
 
 1. Make sure `pyspark` matches the Spark cluster minor version
-2. Set `SPARK_MASTER_URL` in `.env` to the host Spark master address such as `spark://host.docker.internal:7077`
+2. Set `SPARK_MASTER_URL` and `AIRFLOW_CONN_SPARK_DEFAULT` in `.env` to the host Spark master address such as `spark://host.docker.internal:7077`
 3. Keep the default `SPARK_DEPLOY_MODE=client` unless your cluster nodes cannot reach the Airflow worker container
-4. Create an Airflow Spark connection such as `spark_default`
+4. Set `ICEBERG_WAREHOUSE` to an `s3://...` warehouse path and configure the matching S3-compatible endpoint and credentials
 5. If you upgrade Spark or Iceberg, update `ICEBERG_VERSION` or `ICEBERG_SPARK_RUNTIME_ARTIFACT` in `Dockerfile`, then put the matching jar files into `jars/`
 
 `docker-compose.yml` already injects a Linux-compatible host alias:
@@ -104,6 +114,14 @@ Host Spark prerequisites:
 - Spark master must listen on a non-loopback address, not only `127.0.0.1`
 - Spark master should advertise a host/IP that Airflow containers can reach
 - `7077` must be reachable from the Docker bridge network
+- Spark workers must be able to reach your Iceberg object storage endpoint; do not use a hostname that only the Airflow containers can resolve
+
+Iceberg storage prerequisites:
+
+- Use an `s3://bucket/prefix` warehouse path when using Iceberg `S3FileIO`
+- `ICEBERG_S3_ENDPOINT` must be reachable from the Spark workers, not only from the Airflow containers
+- For MinIO or other S3-compatible stores, set `ICEBERG_S3_PATH_STYLE_ACCESS=true`
+- In production, move `ICEBERG_S3_ACCESS_KEY_ID` and `ICEBERG_S3_SECRET_ACCESS_KEY` to a real secret backend rather than leaving them in plain environment variables
 
 Validate connectivity from a worker:
 
@@ -121,10 +139,16 @@ PY
 
 If you use standalone Spark and executors cannot connect back to a driver running inside the Airflow worker container, switch to `SPARK_DEPLOY_MODE=cluster` and place the application file on storage that the Spark cluster can read.
 
-Minimal DAG example:
+Included example files:
+
+- [dags/spark_standalone_iceberg_example.py](/Users/huangjian/docker/apache-airflow/dags/spark_standalone_iceberg_example.py): Airflow DAG that calls `spark-submit`
+- [dags/jobs/iceberg_smoke.py](/Users/huangjian/docker/apache-airflow/dags/jobs/iceberg_smoke.py): PySpark app that creates an Iceberg table, writes a few rows, and reads them back
+
+The DAG submits the two Iceberg jars that are baked into the Airflow image to the standalone cluster using the operator's `jars=` parameter. That means the host Spark workers do not need those jars preinstalled in `SPARK_HOME/jars`.
+
+Example DAG:
 
 ```python
-import os
 from airflow import DAG
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
 from datetime import datetime
@@ -138,13 +162,55 @@ with DAG(
     SparkSubmitOperator(
         task_id="run_spark_job",
         conn_id="spark_default",
-        application="/opt/airflow/dags/jobs/example.py",
-        deploy_mode=os.environ.get("SPARK_DEPLOY_MODE", "client"),
-        conf={
-            "spark.master": os.environ["SPARK_MASTER_URL"],
-        },
+        application="/opt/airflow/dags/jobs/iceberg_smoke.py",
+        deploy_mode="client",
+        jars="/path/to/iceberg-aws-bundle.jar,/path/to/iceberg-spark-runtime.jar",
     )
 ```
+
+The sample job configures Iceberg like this inside `SparkSession.builder`:
+
+```text
+spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions
+spark.sql.catalog.iceberg_local=org.apache.iceberg.spark.SparkCatalog
+spark.sql.catalog.iceberg_local.type=hadoop
+spark.sql.catalog.iceberg_local.warehouse=s3://warehouse/iceberg
+spark.sql.catalog.iceberg_local.io-impl=org.apache.iceberg.aws.s3.S3FileIO
+spark.sql.catalog.iceberg_local.s3.endpoint=http://minio.example.com:9000
+spark.sql.catalog.iceberg_local.s3.access-key-id=replace-me
+spark.sql.catalog.iceberg_local.s3.secret-access-key=replace-me
+spark.sql.catalog.iceberg_local.s3.path-style-access=true
+```
+
+Rollout steps:
+
+1. Update `.env` with the real Spark master address and Iceberg storage settings
+2. Build a new Airflow image because the DAG files are copied into the image at build time:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml build airflow-api-server
+```
+
+3. Recreate the Airflow services:
+
+```bash
+docker compose up -d --force-recreate airflow-api-server airflow-scheduler airflow-worker airflow-triggerer airflow-dag-processor
+```
+
+4. Confirm the worker can reach the host Spark master:
+
+```bash
+docker compose exec airflow-worker getent hosts host.docker.internal
+docker compose exec airflow-worker python - <<'PY'
+import socket
+
+with socket.create_connection(("host.docker.internal", 7077), timeout=3):
+    print("spark master reachable")
+PY
+```
+
+5. Trigger `spark_standalone_iceberg_example` from Airflow UI
+6. Check the task log for the `result.show()` output and the final `Wrote ... rows` line
 
 ## Build and Push
 
