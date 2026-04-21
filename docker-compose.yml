@@ -29,8 +29,14 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__DEFAULT_TIMEZONE: ${AIRFLOW_TIMEZONE:-Asia/Shanghai}
     TZ: ${TZ:-Asia/Shanghai}
 
+    # Spark client defaults. Containers submit jobs to a Spark service running on the host.
+    SPARK_MASTER_URL: ${SPARK_MASTER_URL:-spark://host.docker.internal:7077}
+    SPARK_DEPLOY_MODE: ${SPARK_DEPLOY_MODE:-client}
+
   volumes:
     - ./logs:/opt/airflow/logs
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
 
   user: "${AIRFLOW_UID:-50000}:0"
 

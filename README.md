@@ -38,6 +38,8 @@ AIRFLOW_API_PORT=18081
 AIRFLOW_TIMEZONE=Asia/Shanghai
 TZ=Asia/Shanghai
 AIRFLOW_LOGGING_LEVEL=INFO
+SPARK_MASTER_URL=spark://host.docker.internal:7077
+SPARK_DEPLOY_MODE=client
 ```
 
 Apollo example:
@@ -83,13 +85,46 @@ The Docker build copies them into the `pyspark` `jars/` directory inside the ima
 Before using Spark DAGs:
 
 1. Make sure `pyspark` matches the Spark cluster minor version
-2. Create an Airflow Spark connection such as `spark_default`
-3. Point that connection to your Spark master, YARN, or Kubernetes entrypoint
-4. If you upgrade Spark or Iceberg, update `ICEBERG_VERSION` or `ICEBERG_SPARK_RUNTIME_ARTIFACT` in `Dockerfile`, then put the matching jar files into `jars/`
+2. Set `SPARK_MASTER_URL` in `.env` to the host Spark master address such as `spark://host.docker.internal:7077`
+3. Keep the default `SPARK_DEPLOY_MODE=client` unless your cluster nodes cannot reach the Airflow worker container
+4. Create an Airflow Spark connection such as `spark_default`
+5. If you upgrade Spark or Iceberg, update `ICEBERG_VERSION` or `ICEBERG_SPARK_RUNTIME_ARTIFACT` in `Dockerfile`, then put the matching jar files into `jars/`
+
+`docker-compose.yml` already injects a Linux-compatible host alias:
+
+```yaml
+extra_hosts:
+  - "host.docker.internal:host-gateway"
+```
+
+This lets Airflow containers reach services that are running directly on the Docker host.
+
+Host Spark prerequisites:
+
+- Spark master must listen on a non-loopback address, not only `127.0.0.1`
+- Spark master should advertise a host/IP that Airflow containers can reach
+- `7077` must be reachable from the Docker bridge network
+
+Validate connectivity from a worker:
+
+```bash
+docker compose exec airflow-worker getent hosts host.docker.internal
+docker compose exec airflow-worker python - <<'PY'
+import socket
+
+host = "host.docker.internal"
+port = 7077
+with socket.create_connection((host, port), timeout=3):
+    print(f"connected to {host}:{port}")
+PY
+```
+
+If you use standalone Spark and executors cannot connect back to a driver running inside the Airflow worker container, switch to `SPARK_DEPLOY_MODE=cluster` and place the application file on storage that the Spark cluster can read.
 
 Minimal DAG example:
 
 ```python
+import os
 from airflow import DAG
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
 from datetime import datetime
@@ -103,7 +138,11 @@ with DAG(
     SparkSubmitOperator(
         task_id="run_spark_job",
         conn_id="spark_default",
-        application="/opt/spark/jobs/example.py",
+        application="/opt/airflow/dags/jobs/example.py",
+        deploy_mode=os.environ.get("SPARK_DEPLOY_MODE", "client"),
+        conf={
+            "spark.master": os.environ["SPARK_MASTER_URL"],
+        },
     )
 ```
 
