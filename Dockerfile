@@ -57,6 +57,13 @@ USER airflow
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
+COPY --chown=airflow:0 jars /tmp/jars
+RUN JARS_DIR="$(python -c "import pathlib, pyspark; print(pathlib.Path(pyspark.__file__).resolve().parent / 'jars')")" \
+    && test -f /tmp/jars/iceberg-aws-bundle-1.10.1.jar \
+    && test -f /tmp/jars/iceberg-spark-runtime-3.5_2.12-1.10.1.jar \
+    && cp /tmp/jars/iceberg-aws-bundle-1.10.1.jar "${JARS_DIR}/iceberg-aws-bundle-1.10.1.jar" \
+    && cp /tmp/jars/iceberg-spark-runtime-3.5_2.12-1.10.1.jar "${JARS_DIR}/iceberg-spark-runtime-3.5_2.12-1.10.1.jar"
+
 RUN python -c "import importlib.util; assert importlib.util.find_spec('playwright'), 'playwright is not installed. Add it to requirements.txt.'" \
     && playwright install chromium
 

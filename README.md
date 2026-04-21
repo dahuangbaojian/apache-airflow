@@ -69,14 +69,23 @@ The image includes:
 - `apache-airflow-providers-apache-spark`
 - `pyspark`
 - Java runtime
+- Iceberg runtime jars for Spark and AWS access
 
 This supports submitting jobs from Airflow to an existing Spark cluster.
+
+Put these files into the repo's [jars/README.md](/Users/huangjian/docker/apache-airflow/jars/README.md) directory before building:
+
+- `iceberg-aws-bundle-1.10.1.jar`
+- `iceberg-spark-runtime-3.5_2.12-1.10.1.jar`
+
+The Docker build copies them into the `pyspark` `jars/` directory inside the image.
 
 Before using Spark DAGs:
 
 1. Make sure `pyspark` matches the Spark cluster minor version
 2. Create an Airflow Spark connection such as `spark_default`
 3. Point that connection to your Spark master, YARN, or Kubernetes entrypoint
+4. If you upgrade Spark or Iceberg, update the required jar filenames in `Dockerfile` and `jars/README.md`
 
 Minimal DAG example:
 
@@ -105,6 +114,19 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml build airflow-a
 docker tag local/airflow:3.1.8 harbor.example.com/team/airflow:3.1.8-YYYYMMDD
 docker login harbor.example.com
 docker push harbor.example.com/team/airflow:3.1.8-YYYYMMDD
+```
+
+To verify the built image contains the Iceberg jars:
+
+```bash
+docker run --rm local/airflow:3.1.8 bash -lc 'python - <<'"'"'PY'"'"'
+import pathlib
+import pyspark
+
+jars_dir = pathlib.Path(pyspark.__file__).resolve().parent / "jars"
+for path in sorted(jars_dir.glob("*iceberg*.jar")):
+    print(path.name)
+PY'
 ```
 
 Use immutable tags such as date, build number, or commit SHA.
