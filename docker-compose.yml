@@ -30,7 +30,7 @@ x-airflow-common: &airflow-common
     TZ: ${TZ:-Asia/Shanghai}
 
   volumes:
-    - airflow_logs:/opt/airflow/logs
+    - ./logs:/opt/airflow/logs
 
   user: "${AIRFLOW_UID:-50000}:0"
 
@@ -109,6 +109,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  airflow_logs:
   postgres_data:
   redis_data:
