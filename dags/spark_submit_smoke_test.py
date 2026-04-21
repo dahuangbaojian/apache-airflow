@@ -11,8 +11,6 @@ SPARK_TEST_APPLICATION = os.path.join(
     "spark_jobs",
     "smoke_test.py",
 )
-SPARK_SMOKE_PARTITIONS = "1"
-SPARK_SMOKE_COUNT = "100"
 SPARK_SMOKE_EXECUTOR_CORES = 1
 SPARK_SMOKE_EXECUTOR_INSTANCES = 1
 SPARK_SMOKE_CORES_MAX = "1"
@@ -34,7 +32,6 @@ with DAG(
         conn_id=SPARK_TEST_CONN_ID,
         application=SPARK_TEST_APPLICATION,
         name="airflow-spark-smoke-test",
-        application_args=["--partitions", SPARK_SMOKE_PARTITIONS, "--count", SPARK_SMOKE_COUNT],
         executor_cores=SPARK_SMOKE_EXECUTOR_CORES,
         num_executors=SPARK_SMOKE_EXECUTOR_INSTANCES,
         executor_memory=SPARK_SMOKE_EXECUTOR_MEMORY,
