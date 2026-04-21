@@ -46,6 +46,8 @@ with DAG(
             "spark.executor.cores": SPARK_SMOKE_EXECUTOR_CORES,
             "spark.executor.memory": SPARK_SMOKE_EXECUTOR_MEMORY,
             "spark.driver.memory": SPARK_SMOKE_DRIVER_MEMORY,
+            "spark.pyspark.python": "python3",
+            "spark.pyspark.driver.python": "python3",
             "spark.task.maxFailures": "1",
             "spark.stage.maxConsecutiveAttempts": "1",
             "spark.deploy.maxExecutorRetries": "0",
