@@ -64,6 +64,8 @@ services:
   airflow-redis:
     image: redis:7.2
     command: ["redis-server", "--requirepass", "${AIRFLOW_REDIS_PASSWORD:-change-me}", "--appendonly", "yes"]
+    ports:
+      - "${AIRFLOW_REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     restart: unless-stopped
@@ -79,6 +81,8 @@ services:
       POSTGRES_USER: ${AIRFLOW_POSTGRES_USER:-airflow}
       POSTGRES_PASSWORD: ${AIRFLOW_POSTGRES_PASSWORD:-airflow}
       POSTGRES_DB: ${AIRFLOW_POSTGRES_DB:-airflow}
+    ports:
+      - "${AIRFLOW_POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped

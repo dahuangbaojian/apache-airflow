@@ -28,7 +28,9 @@ AIRFLOW_UID=50000
 AIRFLOW_POSTGRES_USER=airflow
 AIRFLOW_POSTGRES_PASSWORD=replace-me
 AIRFLOW_POSTGRES_DB=airflow
+AIRFLOW_POSTGRES_PORT=5432
 AIRFLOW_REDIS_PASSWORD=replace-me
+AIRFLOW_REDIS_PORT=6379
 
 FERNET_KEY=replace-me
 SECRET_KEY=replace-me
@@ -68,6 +70,13 @@ For Celery task log streaming, `docker-compose.yml` also sets:
 - `hostname: airflow-worker` on the worker service
 
 This avoids broken worker log URLs such as `http://:8793/...` when Airflow cannot derive a usable container hostname.
+
+Postgres and Redis are also published to the host by default:
+
+- Postgres: `${AIRFLOW_POSTGRES_PORT:-5432}`
+- Redis: `${AIRFLOW_REDIS_PORT:-6379}`
+
+Airflow containers should still use the internal service names `airflow-postgres:5432` and `airflow-redis:6379`. The published ports are for host-side access and debugging.
 
 ## Build Env
 
