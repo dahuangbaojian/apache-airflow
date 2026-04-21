@@ -15,3 +15,11 @@ curl -fL https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-spark-runtime
 ```
 
 The Docker build copies these files into PySpark's `jars/` directory inside the image.
+
+The default Dockerfile expects:
+
+- `ICEBERG_VERSION=1.10.1`
+- `ICEBERG_AWS_ARTIFACT=iceberg-aws-bundle`
+- `ICEBERG_SPARK_RUNTIME_ARTIFACT=iceberg-spark-runtime-3.5_2.12`
+
+If you upgrade Spark or Iceberg, update those Dockerfile `ARG` values and place the matching jar files in this directory.

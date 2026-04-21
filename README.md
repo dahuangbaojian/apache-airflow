@@ -85,7 +85,7 @@ Before using Spark DAGs:
 1. Make sure `pyspark` matches the Spark cluster minor version
 2. Create an Airflow Spark connection such as `spark_default`
 3. Point that connection to your Spark master, YARN, or Kubernetes entrypoint
-4. If you upgrade Spark or Iceberg, update the required jar filenames in `Dockerfile` and `jars/README.md`
+4. If you upgrade Spark or Iceberg, update `ICEBERG_VERSION` or `ICEBERG_SPARK_RUNTIME_ARTIFACT` in `Dockerfile`, then put the matching jar files into `jars/`
 
 Minimal DAG example:
 
@@ -227,4 +227,4 @@ Build is slow:
 
 - `apt-get`: check `APT_MIRROR_HOST`
 - `pip install`: check `PIP_INDEX_URL`
-- `playwright install chromium`: browser download is usually the remaining bottleneck. Keep `playwright` pinned in `requirements.txt` so this layer stays cached when only wheels change.
+- This image no longer installs `playwright` or browser binaries during build.
