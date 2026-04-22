@@ -7,7 +7,7 @@ ARG APT_MIRROR_HOST=mirrors.tuna.tsinghua.edu.cn
 ARG ICEBERG_VERSION=1.10.1
 ARG ICEBERG_SPARK_RUNTIME_ARTIFACT=iceberg-spark-runtime-3.5_2.12
 ARG ICEBERG_AWS_ARTIFACT=iceberg-aws-bundle
-FROM apache/airflow:${AIRFLOW_VERSION}
+FROM apache/airflow:${AIRFLOW_VERSION}-python3.13
 
 ARG PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 ARG PIP_TRUSTED_HOST=pypi.tuna.tsinghua.edu.cn

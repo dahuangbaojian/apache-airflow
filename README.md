@@ -10,6 +10,7 @@ Airflow 3 with CeleryExecutor, Postgres, Redis, and a custom image.
 - Business code enters the image through `wheels/`
 - DAG files under `dags/` are copied into the image
 - Spark task submission is supported through Airflow's Spark provider
+- The custom image is built from `apache/airflow:${AIRFLOW_VERSION}-python3.13` so the Airflow driver matches Spark clusters that run Python 3.13
 
 ## Files
 
