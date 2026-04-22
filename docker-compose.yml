@@ -35,6 +35,9 @@ x-airflow-common: &airflow-common
     SPARK_MASTER_URL: ${SPARK_MASTER_URL:-spark://host.docker.internal:7077}
     AIRFLOW_CONN_SPARK_DEFAULT: ${AIRFLOW_CONN_SPARK_DEFAULT:-${SPARK_MASTER_URL:-spark://host.docker.internal:7077}}
     SPARK_DEPLOY_MODE: ${SPARK_DEPLOY_MODE:-client}
+    SPARK_DRIVER_HOST: ${SPARK_DRIVER_HOST:-}
+    SPARK_DRIVER_PORT: ${SPARK_DRIVER_PORT:-45689}
+    SPARK_BLOCKMANAGER_PORT: ${SPARK_BLOCKMANAGER_PORT:-45690}
 
     # Iceberg defaults for the sample Spark standalone integration.
     ICEBERG_CATALOG_NAME: ${ICEBERG_CATALOG_NAME:-iceberg_local}
@@ -113,6 +116,9 @@ services:
   airflow-worker:
     <<: *airflow-common
     hostname: airflow-worker
+    ports:
+      - "${SPARK_DRIVER_PORT:-45689}:${SPARK_DRIVER_PORT:-45689}"
+      - "${SPARK_BLOCKMANAGER_PORT:-45690}:${SPARK_BLOCKMANAGER_PORT:-45690}"
     command: celery worker
     restart: unless-stopped
 

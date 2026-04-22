@@ -43,6 +43,9 @@ AIRFLOW_LOGGING_LEVEL=INFO
 AIRFLOW_WORKER_LOG_SERVER_PORT=8793
 SPARK_MASTER_URL=spark://host.docker.internal:7077
 SPARK_DEPLOY_MODE=client
+SPARK_DRIVER_HOST=10.60.60.132
+SPARK_DRIVER_PORT=45689
+SPARK_BLOCKMANAGER_PORT=45690
 ICEBERG_CATALOG_NAME=iceberg_local
 ICEBERG_CATALOG_TYPE=hadoop
 # ICEBERG_CATALOG_URI=http://iceberg-rest.example.com:8181
@@ -112,10 +115,11 @@ Before using Spark DAGs:
 
 1. Make sure `pyspark` matches the Spark cluster minor version
 2. Set `SPARK_MASTER_URL` in `.env` to the host Spark master address such as `spark://host.docker.internal:7077`
-3. Keep the default `SPARK_DEPLOY_MODE=client` unless your cluster nodes cannot reach the Airflow worker container
-4. Set `ICEBERG_CATALOG_TYPE` correctly for your environment. Use `hadoop` with `ICEBERG_WAREHOUSE`, or `rest` with `ICEBERG_CATALOG_URI`
-5. Configure the matching S3-compatible endpoint and credentials
-6. If you upgrade Spark or Iceberg, update `ICEBERG_VERSION` or `ICEBERG_SPARK_RUNTIME_ARTIFACT` in `Dockerfile`, then put the matching jar files into `jars/`
+3. In `client` mode, set `SPARK_DRIVER_HOST` to the real host IP of the machine running Airflow Docker, such as `10.60.60.132`
+4. Keep the default `SPARK_DRIVER_PORT` and `SPARK_BLOCKMANAGER_PORT`, or set fixed alternatives that are reachable from every Spark worker node
+5. Set `ICEBERG_CATALOG_TYPE` correctly for your environment. Use `hadoop` with `ICEBERG_WAREHOUSE`, or `rest` with `ICEBERG_CATALOG_URI`
+6. Configure the matching S3-compatible endpoint and credentials
+7. If you upgrade Spark or Iceberg, update `ICEBERG_VERSION` or `ICEBERG_SPARK_RUNTIME_ARTIFACT` in `Dockerfile`, then put the matching jar files into `jars/`
 
 `AIRFLOW_CONN_SPARK_DEFAULT` is still present inside `docker-compose.yml` because Airflow's Spark provider reads connection settings from that environment variable. You do not need to set it in `.env` unless you intentionally want it to differ from `SPARK_MASTER_URL`.
 
@@ -133,6 +137,7 @@ Host Spark prerequisites:
 - Spark master must listen on a non-loopback address, not only `127.0.0.1`
 - Spark master should advertise a host/IP that Airflow containers can reach
 - `7077` must be reachable from the Docker bridge network
+- In `client` deploy mode, every Spark worker must be able to connect back to `SPARK_DRIVER_HOST:SPARK_DRIVER_PORT` and `SPARK_DRIVER_HOST:SPARK_BLOCKMANAGER_PORT`
 - Spark workers must be able to reach your Iceberg object storage endpoint; do not use a hostname that only the Airflow containers can resolve
 
 Iceberg storage prerequisites:
@@ -157,7 +162,7 @@ with socket.create_connection((host, port), timeout=3):
 PY
 ```
 
-If you use standalone Spark and executors cannot connect back to a driver running inside the Airflow worker container, switch to `SPARK_DEPLOY_MODE=cluster` and place the application file on storage that the Spark cluster can read.
+For Python applications on Spark standalone, `client` mode is the practical option. This project therefore publishes fixed driver ports from `airflow-worker` and explicitly sets `spark.driver.host`, `spark.driver.bindAddress`, `spark.driver.port`, and `spark.blockManager.port` so executors can call back into the driver. Keep Spark job concurrency low on a single Airflow worker host, because the fixed driver ports cannot be shared by multiple concurrent client-mode applications.
 
 Included example files:
 
@@ -185,6 +190,12 @@ with DAG(
         application="/opt/airflow/dags/jobs/iceberg_smoke.py",
         deploy_mode="client",
         jars="/path/to/iceberg-aws-bundle.jar,/path/to/iceberg-spark-runtime.jar",
+        conf={
+            "spark.driver.host": "10.60.60.132",
+            "spark.driver.bindAddress": "0.0.0.0",
+            "spark.driver.port": "45689",
+            "spark.blockManager.port": "45690",
+        },
     )
 ```
 
@@ -218,7 +229,7 @@ spark.sql.catalog.iceberg_local.io-impl=org.apache.iceberg.aws.s3.S3FileIO
 
 Rollout steps:
 
-1. Update `.env` with the real `SPARK_MASTER_URL` and Iceberg storage settings
+1. Update `.env` with the real `SPARK_MASTER_URL`, `SPARK_DRIVER_HOST`, and Iceberg storage settings
 2. Build a new Airflow image because the DAG files are copied into the image at build time:
 
 ```bash
@@ -231,20 +242,21 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml build airflow-a
 docker compose up -d --force-recreate airflow-api-server airflow-scheduler airflow-worker airflow-triggerer airflow-dag-processor
 ```
 
-4. Confirm the worker can reach the host Spark master:
+4. Confirm the worker can reach the Spark master:
 
 ```bash
 docker compose exec airflow-worker getent hosts host.docker.internal
 docker compose exec airflow-worker python - <<'PY'
 import socket
 
-with socket.create_connection(("host.docker.internal", 7077), timeout=3):
+with socket.create_connection(("10.60.60.131", 7077), timeout=3):
     print("spark master reachable")
 PY
 ```
 
-5. Trigger `spark_standalone_iceberg_example` from Airflow UI
-6. Check the task log for the `SHOW NAMESPACES` output and the final `Listed namespaces from Iceberg catalog ...` line
+5. Confirm every Spark worker node can reach `SPARK_DRIVER_HOST:SPARK_DRIVER_PORT` and `SPARK_DRIVER_HOST:SPARK_BLOCKMANAGER_PORT`
+6. Trigger `spark_standalone_iceberg_example` from Airflow UI
+7. Check the task log for the `SHOW NAMESPACES` output and the final `Listed namespaces from Iceberg catalog ...` line
 
 ## Build and Push
 

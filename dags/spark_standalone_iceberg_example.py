@@ -13,6 +13,13 @@ def _env(name: str, default: str) -> str:
     return os.environ.get(name, default)
 
 
+def _required_env(name: str) -> str:
+    value = os.environ.get(name)
+    if not value:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+
 def _maybe_env(name: str) -> str | None:
     value = os.environ.get(name)
     return value if value else None
@@ -62,5 +69,9 @@ with DAG(
         ],
         conf={
             "spark.sql.extensions": "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions",
+            "spark.driver.host": _required_env("SPARK_DRIVER_HOST"),
+            "spark.driver.bindAddress": "0.0.0.0",
+            "spark.driver.port": _env("SPARK_DRIVER_PORT", "45689"),
+            "spark.blockManager.port": _env("SPARK_BLOCKMANAGER_PORT", "45690"),
         },
     )
