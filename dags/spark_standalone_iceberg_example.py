@@ -22,6 +22,7 @@ def _task_env() -> dict[str, str]:
     names = [
         "ICEBERG_CATALOG_NAME",
         "ICEBERG_CATALOG_TYPE",
+        "ICEBERG_CATALOG_URI",
         "ICEBERG_WAREHOUSE",
         "ICEBERG_S3_ENDPOINT",
         "ICEBERG_S3_ACCESS_KEY_ID",

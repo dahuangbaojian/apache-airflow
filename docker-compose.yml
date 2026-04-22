@@ -46,6 +46,7 @@ x-airflow-common: &airflow-common
     ICEBERG_S3_PATH_STYLE_ACCESS: ${ICEBERG_S3_PATH_STYLE_ACCESS:-true}
     ICEBERG_AWS_JAR: ${ICEBERG_AWS_JAR:-iceberg-aws-bundle-1.10.1.jar}
     ICEBERG_SPARK_RUNTIME_JAR: ${ICEBERG_SPARK_RUNTIME_JAR:-iceberg-spark-runtime-3.5_2.12-1.10.1.jar}
+    ICEBERG_CATALOG_URI: ${ICEBERG_CATALOG_URI:-}
 
   volumes:
     - ./logs:/opt/airflow/logs

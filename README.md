@@ -45,6 +45,7 @@ SPARK_MASTER_URL=spark://host.docker.internal:7077
 SPARK_DEPLOY_MODE=client
 ICEBERG_CATALOG_NAME=iceberg_local
 ICEBERG_CATALOG_TYPE=hadoop
+# ICEBERG_CATALOG_URI=http://iceberg-rest.example.com:8181
 ICEBERG_WAREHOUSE=s3://warehouse/iceberg
 ICEBERG_S3_ENDPOINT=http://minio.example.com:9000
 ICEBERG_S3_ACCESS_KEY_ID=replace-me
@@ -112,8 +113,9 @@ Before using Spark DAGs:
 1. Make sure `pyspark` matches the Spark cluster minor version
 2. Set `SPARK_MASTER_URL` in `.env` to the host Spark master address such as `spark://host.docker.internal:7077`
 3. Keep the default `SPARK_DEPLOY_MODE=client` unless your cluster nodes cannot reach the Airflow worker container
-4. Set `ICEBERG_WAREHOUSE` to an `s3://...` warehouse path and configure the matching S3-compatible endpoint and credentials
-5. If you upgrade Spark or Iceberg, update `ICEBERG_VERSION` or `ICEBERG_SPARK_RUNTIME_ARTIFACT` in `Dockerfile`, then put the matching jar files into `jars/`
+4. Set `ICEBERG_CATALOG_TYPE` correctly for your environment. Use `hadoop` with `ICEBERG_WAREHOUSE`, or `rest` with `ICEBERG_CATALOG_URI`
+5. Configure the matching S3-compatible endpoint and credentials
+6. If you upgrade Spark or Iceberg, update `ICEBERG_VERSION` or `ICEBERG_SPARK_RUNTIME_ARTIFACT` in `Dockerfile`, then put the matching jar files into `jars/`
 
 `AIRFLOW_CONN_SPARK_DEFAULT` is still present inside `docker-compose.yml` because Airflow's Spark provider reads connection settings from that environment variable. You do not need to set it in `.env` unless you intentionally want it to differ from `SPARK_MASTER_URL`.
 
@@ -139,6 +141,7 @@ Iceberg storage prerequisites:
 - `ICEBERG_S3_ENDPOINT` must be reachable from the Spark workers, not only from the Airflow containers
 - For MinIO or other S3-compatible stores, set `ICEBERG_S3_PATH_STYLE_ACCESS=true`
 - In production, move `ICEBERG_S3_ACCESS_KEY_ID` and `ICEBERG_S3_SECRET_ACCESS_KEY` to a real secret backend rather than leaving them in plain environment variables
+- If `ICEBERG_CATALOG_TYPE=rest`, also set `ICEBERG_CATALOG_URI`
 
 Validate connectivity from a worker:
 
@@ -203,6 +206,14 @@ Then it runs:
 
 ```sql
 SHOW NAMESPACES IN iceberg_local
+```
+
+If your production environment uses a REST catalog, the sample job now supports:
+
+```text
+spark.sql.catalog.iceberg_local.type=rest
+spark.sql.catalog.iceberg_local.uri=http://iceberg-rest.example.com:8181
+spark.sql.catalog.iceberg_local.io-impl=org.apache.iceberg.aws.s3.S3FileIO
 ```
 
 Rollout steps:
