@@ -19,6 +19,7 @@ Airflow 3 with CeleryExecutor, Postgres, Redis, and a custom image.
 - `Dockerfile`: custom image
 - `.env.example`: env template
 - `admin-password.sh`: print admin password
+- `spark-pyfiles/`: optional Python archives distributed to Spark executors via `py_files`
 
 ## Required Runtime Env
 
@@ -121,6 +122,7 @@ Before using Spark DAGs:
 5. Set `ICEBERG_CATALOG_TYPE` correctly for your environment. Use `hadoop` with `ICEBERG_WAREHOUSE`, or `rest` with `ICEBERG_CATALOG_URI`
 6. Configure the matching S3-compatible endpoint and credentials
 7. If you upgrade Spark or Iceberg, update `ICEBERG_VERSION` or `ICEBERG_SPARK_RUNTIME_ARTIFACT` in `Dockerfile`, then put the matching jar files into `jars/`
+8. If your PySpark jobs import project-local Python packages, copy exactly one project zip archive into `spark-pyfiles/`
 
 `AIRFLOW_CONN_SPARK_DEFAULT` is still present inside `docker-compose.yml` because Airflow's Spark provider reads connection settings from that environment variable. You do not need to set it in `.env` unless you intentionally want it to differ from `SPARK_MASTER_URL`.
 
@@ -171,6 +173,7 @@ Included example files:
 - [dags/jobs/iceberg_smoke.py](/Users/huangjian/docker/apache-airflow/dags/jobs/iceberg_smoke.py): PySpark app that runs `SHOW NAMESPACES IN <catalog>`
 
 The DAG submits the two Iceberg jars that are baked into the Airflow image to the standalone cluster using the operator's `jars=` parameter. That means the host Spark workers do not need those jars preinstalled in `SPARK_HOME/jars`.
+If `/opt/airflow/spark-pyfiles/` contains exactly one zip archive, the example DAG also submits it through Spark's `py_files` mechanism. `SPARK_PY_FILES` remains available as an advanced override, but it is not required for the default flow.
 
 Example DAG:
 
@@ -231,19 +234,20 @@ spark.sql.catalog.iceberg_local.io-impl=org.apache.iceberg.aws.s3.S3FileIO
 Rollout steps:
 
 1. Update `.env` with the real `SPARK_MASTER_URL`, `SPARK_DRIVER_HOST`, and Iceberg storage settings
-2. Build a new Airflow image because the DAG files are copied into the image at build time:
+2. Copy your project wheel into `wheels/` and keep exactly one Spark executor zip in `spark-pyfiles/`
+3. Build a new Airflow image because the DAG files and `spark-pyfiles/` archives are copied into the image at build time:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.build.yml build airflow-api-server
 ```
 
-3. Recreate the Airflow services:
+4. Recreate the Airflow services:
 
 ```bash
 docker compose up -d --force-recreate airflow-api-server airflow-scheduler airflow-worker airflow-triggerer airflow-dag-processor
 ```
 
-4. Confirm the worker can reach the Spark master:
+5. Confirm the worker can reach the Spark master:
 
 ```bash
 docker compose exec airflow-worker getent hosts host.docker.internal
@@ -255,9 +259,9 @@ with socket.create_connection(("10.60.60.131", 7077), timeout=3):
 PY
 ```
 
-5. Confirm every Spark worker node can reach `SPARK_DRIVER_HOST:SPARK_DRIVER_PORT` and `SPARK_DRIVER_HOST:SPARK_BLOCKMANAGER_PORT`
-6. Trigger `spark_standalone_iceberg_example` from Airflow UI
-7. Check the task log for the `SHOW NAMESPACES` output and the final `Listed namespaces from Iceberg catalog ...` line
+6. Confirm every Spark worker node can reach `SPARK_DRIVER_HOST:SPARK_DRIVER_PORT` and `SPARK_DRIVER_HOST:SPARK_BLOCKMANAGER_PORT`
+7. Trigger `spark_standalone_iceberg_example` from Airflow UI
+8. Check the task log for the `SHOW NAMESPACES` output and the final `Listed namespaces from Iceberg catalog ...` line
 
 ## Build and Push
 

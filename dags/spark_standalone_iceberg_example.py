@@ -48,6 +48,22 @@ def _iceberg_jars() -> str:
     return ",".join(str(jars_dir / jar_name) for jar_name in jar_names)
 
 
+def _spark_py_files() -> str | None:
+    py_files = _maybe_env("SPARK_PY_FILES")
+    if py_files:
+        return py_files
+
+    pyfile_dir = Path("/opt/airflow/spark-pyfiles")
+    zip_paths = sorted(pyfile_dir.glob("*.zip"))
+    if len(zip_paths) == 1:
+        return str(zip_paths[0])
+    if len(zip_paths) > 1:
+        raise RuntimeError(
+            "Expected exactly one Spark py_files zip in /opt/airflow/spark-pyfiles or set SPARK_PY_FILES explicitly"
+        )
+    return None
+
+
 with DAG(
     dag_id="spark_standalone_iceberg_example",
     start_date=datetime(2025, 1, 1),
@@ -61,6 +77,7 @@ with DAG(
         application="/opt/airflow/dags/jobs/iceberg_smoke.py",
         name="airflow-iceberg-namespace-check",
         jars=_iceberg_jars(),
+        py_files=_spark_py_files(),
         deploy_mode=_env("SPARK_DEPLOY_MODE", "client"),
         env_vars=_task_env(),
         application_args=[

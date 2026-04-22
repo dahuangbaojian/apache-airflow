@@ -21,6 +21,8 @@ config/**/*.yaml
 !config/**/*.example.yaml
 wheels/*
 !wheels/.gitkeep
+spark-pyfiles/*
+!spark-pyfiles/.gitkeep
 jars/*
 !jars/.gitkeep
 !jars/README.md

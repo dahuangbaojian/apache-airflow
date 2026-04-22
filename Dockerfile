@@ -50,6 +50,8 @@ RUN find /tmp/wheels -maxdepth 1 -type f -name "*.whl" \
     pip install --no-cache-dir "$wheel"; \
     done
 
+COPY --chown=airflow:0 spark-pyfiles /opt/airflow/spark-pyfiles
+
 COPY --chown=airflow:0 dags /opt/airflow/dags
 COPY --chown=airflow:0 plugins /opt/airflow/plugins
 COPY --chown=airflow:0 config /opt/airflow/config
