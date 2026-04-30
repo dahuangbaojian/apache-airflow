@@ -101,6 +101,7 @@ The image includes:
 
 - `apache-airflow-providers-apache-spark`
 - `pyspark`
+- `requests`
 - Java runtime
 - Iceberg runtime jars for Spark and AWS access
 
