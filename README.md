@@ -47,7 +47,10 @@ SPARK_MASTER_URL=spark://host.docker.internal:7077
 SPARK_DEPLOY_MODE=client
 SPARK_DRIVER_HOST=10.60.60.132
 SPARK_DRIVER_PORT=45689
-SPARK_BLOCKMANAGER_PORT=45690
+SPARK_DRIVER_PORT_END=45720
+SPARK_BLOCKMANAGER_PORT=45789
+SPARK_BLOCKMANAGER_PORT_END=45820
+SPARK_PORT_MAX_RETRIES=31
 ICEBERG_CATALOG_NAME=iceberg_local
 ICEBERG_CATALOG_TYPE=hadoop
 # ICEBERG_CATALOG_URI=http://iceberg-rest.example.com:8181
@@ -119,7 +122,7 @@ Before using Spark DAGs:
 1. Make sure `pyspark` matches the Spark cluster minor version
 2. Set `SPARK_MASTER_URL` in `.env` to the host Spark master address such as `spark://host.docker.internal:7077`
 3. In `client` mode, set `SPARK_DRIVER_HOST` to the real host IP of the machine running Airflow Docker, such as `10.60.60.132`
-4. Keep the default `SPARK_DRIVER_PORT` and `SPARK_BLOCKMANAGER_PORT`, or set fixed alternatives that are reachable from every Spark worker node
+4. Set a reachable driver and block manager port range with `SPARK_DRIVER_PORT`, `SPARK_DRIVER_PORT_END`, `SPARK_BLOCKMANAGER_PORT`, `SPARK_BLOCKMANAGER_PORT_END`, and keep `SPARK_PORT_MAX_RETRIES` within those ranges
 5. Set `ICEBERG_CATALOG_TYPE` correctly for your environment. Use `hadoop` with `ICEBERG_WAREHOUSE`, or `rest` with `ICEBERG_CATALOG_URI`
 6. Configure the matching S3-compatible endpoint and credentials
 7. If you upgrade Spark or Iceberg, update `ICEBERG_VERSION` or `ICEBERG_SPARK_RUNTIME_ARTIFACT` in `Dockerfile`, then put the matching jar files into `jars/`
@@ -141,7 +144,7 @@ Host Spark prerequisites:
 - Spark master must listen on a non-loopback address, not only `127.0.0.1`
 - Spark master should advertise a host/IP that Airflow containers can reach
 - `7077` must be reachable from the Docker bridge network
-- In `client` deploy mode, every Spark worker must be able to connect back to `SPARK_DRIVER_HOST:SPARK_DRIVER_PORT` and `SPARK_DRIVER_HOST:SPARK_BLOCKMANAGER_PORT`
+- In `client` deploy mode, every Spark worker must be able to connect back to the full advertised driver and block manager port ranges on `SPARK_DRIVER_HOST`
 - Spark workers must be able to reach your Iceberg object storage endpoint; do not use a hostname that only the Airflow containers can resolve
 
 Iceberg storage prerequisites:
@@ -166,7 +169,20 @@ with socket.create_connection((host, port), timeout=3):
 PY
 ```
 
-For Python applications on Spark standalone, `client` mode is the practical option. This project therefore publishes fixed driver ports from `airflow-worker` and explicitly sets `spark.driver.host`, `spark.driver.bindAddress`, `spark.driver.port`, and `spark.blockManager.port` so executors can call back into the driver. Keep Spark job concurrency low on a single Airflow worker host, because the fixed driver ports cannot be shared by multiple concurrent client-mode applications.
+For Python applications on Spark standalone, `client` mode is the practical option. This project therefore publishes driver and block manager port ranges from `airflow-worker` and explicitly sets `spark.driver.host`, `spark.driver.bindAddress`, `spark.driver.port`, `spark.blockManager.port`, and `spark.port.maxRetries` so executors can call back into the driver even when multiple Spark applications overlap on the same worker host.
+
+Recommended defaults in this repo:
+
+- Driver ports: `45689-45720`
+- Block manager ports: `45789-45820`
+- `spark.port.maxRetries=31`
+
+That gives Spark room to retry onto later ports in the published range instead of failing on the first collision. Still cap concurrency deliberately:
+
+- Put all Spark DAGs on a dedicated Airflow pool such as `spark_submit_pool`
+- Start with `slots=1` to confirm stability
+- Increase pool slots only after the published port ranges and host firewall rules are confirmed
+- Keep `pool` capacity at or below the number of usable driver ports in the published range
 
 Included example files:
 
@@ -199,7 +215,8 @@ with DAG(
             "spark.driver.host": "10.60.60.132",
             "spark.driver.bindAddress": "0.0.0.0",
             "spark.driver.port": "45689",
-            "spark.blockManager.port": "45690",
+            "spark.blockManager.port": "45789",
+            "spark.port.maxRetries": "31",
         },
     )
 ```
@@ -234,7 +251,7 @@ spark.sql.catalog.iceberg_local.io-impl=org.apache.iceberg.aws.s3.S3FileIO
 
 Rollout steps:
 
-1. Update `.env` with the real `SPARK_MASTER_URL`, `SPARK_DRIVER_HOST`, and Iceberg storage settings
+1. Update `.env` with the real `SPARK_MASTER_URL`, `SPARK_DRIVER_HOST`, driver and block manager port ranges, and Iceberg storage settings
 2. Copy your project wheel into `wheels/` and keep exactly one Spark executor zip in `spark-pyfiles/`
 3. Build a new Airflow image because the DAG files and `spark-pyfiles/` archives are copied into the image at build time:
 
@@ -260,9 +277,10 @@ with socket.create_connection(("10.60.60.131", 7077), timeout=3):
 PY
 ```
 
-6. Confirm every Spark worker node can reach `SPARK_DRIVER_HOST:SPARK_DRIVER_PORT` and `SPARK_DRIVER_HOST:SPARK_BLOCKMANAGER_PORT`
-7. Trigger `spark_standalone_iceberg_example` from Airflow UI
-8. Check the task log for the `SHOW NAMESPACES` output and the final `Listed namespaces from Iceberg catalog ...` line
+6. Confirm every Spark worker node can reach the full published ranges on `SPARK_DRIVER_HOST`, not just the first driver port
+7. Put all Spark DAGs on an Airflow pool such as `spark_submit_pool` and start with `slots=1`
+8. Trigger `spark_standalone_iceberg_example` from Airflow UI
+9. Check the task log for the `SHOW NAMESPACES` output and the final `Listed namespaces from Iceberg catalog ...` line
 
 ## Build and Push
 

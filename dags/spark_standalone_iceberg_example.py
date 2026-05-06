@@ -89,6 +89,7 @@ with DAG(
             "spark.driver.host": _required_env("SPARK_DRIVER_HOST"),
             "spark.driver.bindAddress": "0.0.0.0",
             "spark.driver.port": _env("SPARK_DRIVER_PORT", "45689"),
-            "spark.blockManager.port": _env("SPARK_BLOCKMANAGER_PORT", "45690"),
+            "spark.blockManager.port": _env("SPARK_BLOCKMANAGER_PORT", "45789"),
+            "spark.port.maxRetries": _env("SPARK_PORT_MAX_RETRIES", "31"),
         },
     )
