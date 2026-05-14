@@ -9,6 +9,7 @@ Airflow 3 with CeleryExecutor, Postgres, Redis, and a custom image.
 - Production only `pull` and `up -d`
 - Business code enters the image through `wheels/`
 - DAG files under `dags/` are copied into the image
+- Offline embedding model files enter the image through `models/`
 - Spark task submission is supported through Airflow's Spark provider
 - The custom image is built from `apache/airflow:${AIRFLOW_VERSION}-python3.13` so the Airflow driver matches Spark clusters that run Python 3.13
 
@@ -20,6 +21,7 @@ Airflow 3 with CeleryExecutor, Postgres, Redis, and a custom image.
 - `.env.example`: env template
 - `admin-password.sh`: print admin password
 - `spark-pyfiles/`: optional Python archives distributed to Spark executors via `py_files`
+- `models/`: optional offline local models, such as embedding models
 
 ## Required Runtime Env
 
@@ -59,6 +61,12 @@ ICEBERG_S3_ENDPOINT=http://minio.example.com:9000
 ICEBERG_S3_ACCESS_KEY_ID=replace-me
 ICEBERG_S3_SECRET_ACCESS_KEY=replace-me
 ICEBERG_S3_PATH_STYLE_ACCESS=true
+
+EMBEDDING_MODEL_PATH=/opt/airflow/models/embedding
+HF_HOME=/opt/airflow/.cache/huggingface
+SENTENCE_TRANSFORMERS_HOME=/opt/airflow/models
+TRANSFORMERS_OFFLINE=1
+HF_HUB_OFFLINE=1
 ```
 
 Apollo example:
@@ -116,6 +124,58 @@ Put these files into the repo's [jars/README.md](/Users/huangjian/docker/apache-
 - `iceberg-spark-runtime-3.5_2.12-1.10.1.jar`
 
 The Docker build copies them into the `pyspark` `jars/` directory inside the image.
+
+## Offline Embedding Models
+
+If a DAG or packaged business wheel needs embeddings, do not let the task download models at runtime. Download the model in advance, place it under `models/embedding/`, and build the Airflow image with those files included.
+
+Expected local layout before build:
+
+```text
+models/
+  embedding/
+    config.json
+    model.safetensors
+    tokenizer.json
+    tokenizer_config.json
+    ...
+```
+
+The image copies `models/` to `/opt/airflow/models/` and sets:
+
+```env
+EMBEDDING_MODEL_PATH=/opt/airflow/models/embedding
+HF_HOME=/opt/airflow/.cache/huggingface
+SENTENCE_TRANSFORMERS_HOME=/opt/airflow/models
+TRANSFORMERS_OFFLINE=1
+HF_HUB_OFFLINE=1
+```
+
+Application code should load the model only from `EMBEDDING_MODEL_PATH`. For example, when using `sentence-transformers`:
+
+```python
+import os
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer(os.environ["EMBEDDING_MODEL_PATH"])
+vectors = model.encode(["hello"])
+```
+
+Download example on a machine with network access:
+
+```bash
+python - <<'PY'
+from huggingface_hub import snapshot_download
+
+snapshot_download(
+    repo_id="BAAI/bge-small-zh-v1.5",
+    local_dir="models/embedding",
+    local_dir_use_symlinks=False,
+)
+PY
+```
+
+Then build and push the image through the normal build pipeline. At runtime, `TRANSFORMERS_OFFLINE=1` and `HF_HUB_OFFLINE=1` make accidental online downloads fail fast instead of hanging or silently fetching from the internet.
 
 Before using Spark DAGs:
 

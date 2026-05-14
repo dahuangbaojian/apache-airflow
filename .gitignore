@@ -26,3 +26,5 @@ spark-pyfiles/*
 jars/*
 !jars/.gitkeep
 !jars/README.md
+models/*
+!models/README.md

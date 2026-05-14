@@ -54,6 +54,14 @@ x-airflow-common: &airflow-common
     ICEBERG_SPARK_RUNTIME_JAR: ${ICEBERG_SPARK_RUNTIME_JAR:-iceberg-spark-runtime-3.5_2.12-1.10.1.jar}
     ICEBERG_CATALOG_URI: ${ICEBERG_CATALOG_URI:-}
 
+    # Local embedding model. The image is expected to contain the model files,
+    # so runtime code must load from this path and not download from the network.
+    EMBEDDING_MODEL_PATH: ${EMBEDDING_MODEL_PATH:-/opt/airflow/models/embedding}
+    HF_HOME: ${HF_HOME:-/opt/airflow/.cache/huggingface}
+    SENTENCE_TRANSFORMERS_HOME: ${SENTENCE_TRANSFORMERS_HOME:-/opt/airflow/models}
+    TRANSFORMERS_OFFLINE: ${TRANSFORMERS_OFFLINE:-1}
+    HF_HUB_OFFLINE: ${HF_HUB_OFFLINE:-1}
+
   volumes:
     - ./logs:/opt/airflow/logs
   extra_hosts:
