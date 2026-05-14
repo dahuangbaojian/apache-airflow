@@ -53,13 +53,13 @@ RUN find /tmp/wheels -maxdepth 1 -type f -name "*.whl" \
 COPY --chown=airflow:0 spark-pyfiles /opt/airflow/spark-pyfiles
 COPY --chown=airflow:0 models /opt/airflow/models
 
-ENV EMBEDDING_MODEL_PATH=/opt/airflow/models/embedding \
+ENV EMBEDDING_MODELS_DIR=/opt/airflow/models/embedding \
     HF_HOME=/opt/airflow/.cache/huggingface \
     SENTENCE_TRANSFORMERS_HOME=/opt/airflow/models \
     TRANSFORMERS_OFFLINE=1 \
     HF_HUB_OFFLINE=1
 
-RUN mkdir -p "${HF_HOME}" "${EMBEDDING_MODEL_PATH}"
+RUN mkdir -p "${HF_HOME}"
 
 COPY --chown=airflow:0 dags /opt/airflow/dags
 COPY --chown=airflow:0 plugins /opt/airflow/plugins

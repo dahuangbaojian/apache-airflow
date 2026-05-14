@@ -56,7 +56,9 @@ x-airflow-common: &airflow-common
 
     # Local embedding model. The image is expected to contain the model files,
     # so runtime code must load from this path and not download from the network.
-    EMBEDDING_MODEL_PATH: ${EMBEDDING_MODEL_PATH:-/opt/airflow/models/embedding}
+    EMBEDDING_MODELS_DIR: ${EMBEDDING_MODELS_DIR:-/opt/airflow/models/embedding}
+    EMBEDDING_MODEL_NAME: ${EMBEDDING_MODEL_NAME:-}
+    EMBEDDING_MODEL_PATH: ${EMBEDDING_MODEL_PATH:-}
     HF_HOME: ${HF_HOME:-/opt/airflow/.cache/huggingface}
     SENTENCE_TRANSFORMERS_HOME: ${SENTENCE_TRANSFORMERS_HOME:-/opt/airflow/models}
     TRANSFORMERS_OFFLINE: ${TRANSFORMERS_OFFLINE:-1}

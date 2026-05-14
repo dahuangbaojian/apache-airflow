@@ -62,7 +62,9 @@ ICEBERG_S3_ACCESS_KEY_ID=replace-me
 ICEBERG_S3_SECRET_ACCESS_KEY=replace-me
 ICEBERG_S3_PATH_STYLE_ACCESS=true
 
-EMBEDDING_MODEL_PATH=/opt/airflow/models/embedding
+EMBEDDING_MODELS_DIR=/opt/airflow/models/embedding
+EMBEDDING_MODEL_NAME=
+EMBEDDING_MODEL_PATH=
 HF_HOME=/opt/airflow/.cache/huggingface
 SENTENCE_TRANSFORMERS_HOME=/opt/airflow/models
 TRANSFORMERS_OFFLINE=1
@@ -127,37 +129,54 @@ The Docker build copies them into the `pyspark` `jars/` directory inside the ima
 
 ## Offline Embedding Models
 
-If a DAG or packaged business wheel needs embeddings, do not let the task download models at runtime. Download the model in advance, place it under `models/embedding/`, and build the Airflow image with those files included.
+If a DAG or packaged business wheel needs embeddings, do not let the task download models at runtime. Download the model in advance, place it under `models/embedding/<model-dir>/`, and build the Airflow image with those files included.
 
 Expected local layout before build:
 
 ```text
 models/
   embedding/
-    config.json
-    model.safetensors
-    tokenizer.json
-    tokenizer_config.json
-    ...
+    <model-dir>/
+      config.json
+      model.safetensors
+      tokenizer.json
+      tokenizer_config.json
+      modules.json
+      ...
+    <another-model-dir>/
+      config.json
+      model.safetensors
+      tokenizer.json
+      modules.json
+      ...
 ```
 
 The image copies `models/` to `/opt/airflow/models/` and sets:
 
 ```env
-EMBEDDING_MODEL_PATH=/opt/airflow/models/embedding
+EMBEDDING_MODELS_DIR=/opt/airflow/models/embedding
+EMBEDDING_MODEL_NAME=
+EMBEDDING_MODEL_PATH=
 HF_HOME=/opt/airflow/.cache/huggingface
 SENTENCE_TRANSFORMERS_HOME=/opt/airflow/models
 TRANSFORMERS_OFFLINE=1
 HF_HUB_OFFLINE=1
 ```
 
-Application code should load the model only from `EMBEDDING_MODEL_PATH`. For example, when using `sentence-transformers`:
+Application code should resolve the selected model from `EMBEDDING_MODEL_PATH` or by joining `EMBEDDING_MODELS_DIR` with `EMBEDDING_MODEL_NAME`. For example, when using `sentence-transformers`:
 
 ```python
 import os
+from pathlib import Path
 from sentence_transformers import SentenceTransformer
 
-model = SentenceTransformer(os.environ["EMBEDDING_MODEL_PATH"])
+models_dir = Path(os.environ["EMBEDDING_MODELS_DIR"])
+model_path = os.getenv("EMBEDDING_MODEL_PATH")
+if not model_path:
+    model_name = os.environ["EMBEDDING_MODEL_NAME"]
+    model_path = str(models_dir / model_name)
+
+model = SentenceTransformer(model_path)
 vectors = model.encode(["hello"])
 ```
 
@@ -168,8 +187,8 @@ python - <<'PY'
 from huggingface_hub import snapshot_download
 
 snapshot_download(
-    repo_id="BAAI/bge-small-zh-v1.5",
-    local_dir="models/embedding",
+    repo_id="<org>/<model>",
+    local_dir="models/embedding/<org>-<model>",
     local_dir_use_symlinks=False,
 )
 PY
