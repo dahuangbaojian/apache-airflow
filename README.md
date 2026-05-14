@@ -177,6 +177,26 @@ PY
 
 Then build and push the image through the normal build pipeline. At runtime, `TRANSFORMERS_OFFLINE=1` and `HF_HUB_OFFLINE=1` make accidental online downloads fail fast instead of hanging or silently fetching from the internet.
 
+The image also installs the Python dependencies needed by the business package and local embedding inference:
+
+```text
+numpy>=1.26,<3.0
+pymysql>=1.1,<2.0
+trino>=0.333.0,<1.0
+openpyxl>=3.1,<4.0
+Pillow>=10,<12
+requests>=2.32,<3.0
+hdbscan>=0.8.33,<1.0
+torch>=2.6,<3
+transformers>=4.41,<5
+sentence-transformers>=3.0,<6.0
+safetensors>=0.5,<1
+```
+
+Business code enters the image as wheel files under `wheels/`. If the business wheel declares dependencies in its package metadata, pip will resolve those dependencies when installing the wheel. The Docker build therefore uses `wheels/` as a pip `--find-links` source both when installing `requirements.txt` and when installing each business wheel.
+
+For a fully offline image build, put the business wheel and all of its transitive dependency wheels under `wheels/`. If your build environment cannot reach PyPI or the configured mirror, keep `requirements.txt`, the business wheel metadata, and the wheelhouse aligned, or build from an internal package mirror.
+
 Before using Spark DAGs:
 
 1. Make sure `pyspark` matches the Spark cluster minor version

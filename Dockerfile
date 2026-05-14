@@ -32,7 +32,8 @@ RUN apt-get update \
 USER airflow
 
 COPY requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt
+COPY --chown=airflow:0 wheels /tmp/wheels
+RUN pip install --no-cache-dir --find-links /tmp/wheels -r /tmp/requirements.txt
 
 COPY --chown=airflow:0 jars /tmp/jars
 RUN JARS_DIR="$(python -c "import pathlib, pyspark; print(pathlib.Path(pyspark.__file__).resolve().parent / 'jars')")" \
@@ -43,11 +44,10 @@ RUN JARS_DIR="$(python -c "import pathlib, pyspark; print(pathlib.Path(pyspark._
     && cp "/tmp/jars/${AWS_JAR}" "${JARS_DIR}/${AWS_JAR}" \
     && cp "/tmp/jars/${SPARK_RUNTIME_JAR}" "${JARS_DIR}/${SPARK_RUNTIME_JAR}"
 
-COPY --chown=airflow:0 wheels /tmp/wheels
 RUN find /tmp/wheels -maxdepth 1 -type f -name "*.whl" \
     | sort \
     | while IFS= read -r wheel; do \
-    pip install --no-cache-dir "$wheel"; \
+    pip install --no-cache-dir --find-links /tmp/wheels "$wheel"; \
     done
 
 COPY --chown=airflow:0 spark-pyfiles /opt/airflow/spark-pyfiles
