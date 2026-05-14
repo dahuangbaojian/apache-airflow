@@ -63,8 +63,6 @@ ICEBERG_S3_SECRET_ACCESS_KEY=replace-me
 ICEBERG_S3_PATH_STYLE_ACCESS=true
 
 EMBEDDING_MODELS_DIR=/opt/airflow/models/embedding
-EMBEDDING_MODEL_NAME=
-EMBEDDING_MODEL_PATH=
 HF_HOME=/opt/airflow/.cache/huggingface
 SENTENCE_TRANSFORMERS_HOME=/opt/airflow/models
 TRANSFORMERS_OFFLINE=1
@@ -155,15 +153,13 @@ The image copies `models/` to `/opt/airflow/models/` and sets:
 
 ```env
 EMBEDDING_MODELS_DIR=/opt/airflow/models/embedding
-EMBEDDING_MODEL_NAME=
-EMBEDDING_MODEL_PATH=
 HF_HOME=/opt/airflow/.cache/huggingface
 SENTENCE_TRANSFORMERS_HOME=/opt/airflow/models
 TRANSFORMERS_OFFLINE=1
 HF_HUB_OFFLINE=1
 ```
 
-Application code should resolve the selected model from `EMBEDDING_MODEL_PATH` or by joining `EMBEDDING_MODELS_DIR` with `EMBEDDING_MODEL_NAME`. For example, when using `sentence-transformers`:
+Application code should resolve the selected model from its own business configuration, then join that model directory name with `EMBEDDING_MODELS_DIR`. For example, when using `sentence-transformers`:
 
 ```python
 import os
@@ -171,11 +167,8 @@ from pathlib import Path
 from sentence_transformers import SentenceTransformer
 
 models_dir = Path(os.environ["EMBEDDING_MODELS_DIR"])
-model_path = os.getenv("EMBEDDING_MODEL_PATH")
-if not model_path:
-    model_name = os.environ["EMBEDDING_MODEL_NAME"]
-    model_path = str(models_dir / model_name)
-
+model_name = business_config["embedding_model_dir"]
+model_path = str(models_dir / model_name)
 model = SentenceTransformer(model_path)
 vectors = model.encode(["hello"])
 ```

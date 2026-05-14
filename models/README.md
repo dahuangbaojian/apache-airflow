@@ -21,16 +21,11 @@ models/
 
 ## Runtime configuration
 
-Pick a model by setting two related env vars (typically in Apollo):
-
 | Variable | Value | Purpose |
 |---|---|---|
 | `EMBEDDING_MODELS_DIR` | `/opt/airflow/models/embedding` | Parent directory containing all packaged embedding models |
-| `EMBEDDING_MODEL_NAME` | `<subdir>` | Selected model directory name under `EMBEDDING_MODELS_DIR` |
-| `EMBEDDING_MODEL_PATH` | `/opt/airflow/models/embedding/<subdir>` | Optional explicit selected model path |
-| `SMS_TEMPLATE_SCENE_EMBEDDING_MODEL` | `<HF ID>` | Identifier written into `dim_sms_template_scene_dict.embedding_model` |
 
-The Dockerfile does not choose a specific model. Set `EMBEDDING_MODEL_NAME` or `EMBEDDING_MODEL_PATH` per deployment or through Apollo.
+The Airflow image does not choose a specific model. Business code should choose the model through its own configuration and resolve it under `EMBEDDING_MODELS_DIR`.
 
 ## Downloading models
 
