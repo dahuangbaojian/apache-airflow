@@ -51,7 +51,6 @@ RUN find /tmp/wheels -maxdepth 1 -type f -name "*.whl" \
     done
 
 COPY --chown=airflow:0 spark-pyfiles /opt/airflow/spark-pyfiles
-COPY --chown=airflow:0 models /opt/airflow/models
 
 ENV EMBEDDING_MODELS_DIR=/opt/airflow/models/embedding \
     HF_HOME=/opt/airflow/.cache/huggingface \

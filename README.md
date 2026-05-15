@@ -9,7 +9,7 @@ Airflow 3 with CeleryExecutor, Postgres, Redis, and a custom image.
 - Production only `pull` and `up -d`
 - Business code enters the image through `wheels/`
 - DAG files under `dags/` are copied into the image
-- Offline embedding model files enter the image through `models/`
+- Offline embedding model files are mounted read-only from `models/`
 - Spark task submission is supported through Airflow's Spark provider
 - The custom image is built from `apache/airflow:${AIRFLOW_VERSION}-python3.13` so the Airflow driver matches Spark clusters that run Python 3.13
 
@@ -127,7 +127,7 @@ The Docker build copies them into the `pyspark` `jars/` directory inside the ima
 
 ## Offline Embedding Models
 
-If a DAG or packaged business wheel needs embeddings, do not let the task download models at runtime. Download the model in advance, place it under `models/embedding/<model-dir>/`, and build the Airflow image with those files included.
+If a DAG or packaged business wheel needs embeddings, do not let the task download models at runtime. Download the model in advance and place it under `./models/embedding/<model-dir>/`. The Airflow containers mount `./models` read-only at `/opt/airflow/models`.
 
 Expected local layout before build:
 
@@ -149,7 +149,7 @@ models/
       ...
 ```
 
-The image copies `models/` to `/opt/airflow/models/` and sets:
+The compose runtime mounts `./models` to `/opt/airflow/models` and sets:
 
 ```env
 EMBEDDING_MODELS_DIR=/opt/airflow/models/embedding
@@ -159,7 +159,7 @@ TRANSFORMERS_OFFLINE=1
 HF_HUB_OFFLINE=1
 ```
 
-Application code should resolve the selected model from its own business configuration, then join that model directory name with `EMBEDDING_MODELS_DIR`. For example, when using `sentence-transformers`:
+Runtime code should load packaged models from `EMBEDDING_MODELS_DIR`. For example, when using `sentence-transformers`:
 
 ```python
 import os
@@ -167,8 +167,7 @@ from pathlib import Path
 from sentence_transformers import SentenceTransformer
 
 models_dir = Path(os.environ["EMBEDDING_MODELS_DIR"])
-model_name = business_config["embedding_model_dir"]
-model_path = str(models_dir / model_name)
+model_path = str(models_dir / "<model-dir>")
 model = SentenceTransformer(model_path)
 vectors = model.encode(["hello"])
 ```
@@ -187,7 +186,7 @@ snapshot_download(
 PY
 ```
 
-Then build and push the image through the normal build pipeline. At runtime, `TRANSFORMERS_OFFLINE=1` and `HF_HUB_OFFLINE=1` make accidental online downloads fail fast instead of hanging or silently fetching from the internet.
+Then start Airflow with the model directory present on the deployment host. At runtime, `TRANSFORMERS_OFFLINE=1` and `HF_HUB_OFFLINE=1` make accidental online downloads fail fast instead of hanging or silently fetching from the internet.
 
 The image also installs the Python dependencies needed by the business package and local embedding inference:
 

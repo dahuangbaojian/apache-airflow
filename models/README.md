@@ -1,6 +1,6 @@
 # Offline Model Files
 
-Put pre-downloaded model files here before building the Airflow image.
+Put pre-downloaded model files here. Docker Compose mounts this directory read-only at `/opt/airflow/models`.
 
 Multiple models can coexist, each in its own subdirectory named after the HuggingFace ID (with `/` replaced by `-`):
 
@@ -25,21 +25,25 @@ models/
 |---|---|---|
 | `EMBEDDING_MODELS_DIR` | `/opt/airflow/models/embedding` | Parent directory containing all packaged embedding models |
 
-The Airflow image does not choose a specific model. Business code should choose the model through its own configuration and resolve it under `EMBEDDING_MODELS_DIR`.
+The Airflow image only provides the Python runtime and offline environment. Docker Compose mounts `./models` read-only to `/opt/airflow/models`; the image does not contain model weights.
 
 ## Downloading models
 
-Use the project script with the model you want to package:
+Download model files on a machine with network access and copy the complete model directory into `./models/embedding/` before starting Airflow. Example:
 
 ```bash
-# in the project root
-bash scripts/download_embedding_model.sh <org>/<model>
-```
+python - <<'PY'
+from huggingface_hub import snapshot_download
 
-The script downloads to `<project>/models/embedding/<org>-<name>/`. Copy that subdirectory into the Airflow `models/embedding/` build context before `docker compose build`.
+snapshot_download(
+    repo_id="<org>/<model>",
+    local_dir="models/embedding/<org>-<model>",
+    local_dir_use_symlinks=False,
+)
+PY
+```
 
 ## Important
 
-- **Do not commit large model files to git.** They go through your image build pipeline.
-- **Offline mode is enforced** in the Dockerfile (`TRANSFORMERS_OFFLINE=1`, `HF_HUB_OFFLINE=1`), so the model must be present locally in the image.
-- **Online Java service** loading the same model must use a path / cache that resolves to the same HF ID written into `dim_sms_template_scene_dict.embedding_model`.
+- **Do not commit large model files to git.** Keep them on the deployment host, a mounted disk, or a shared filesystem.
+- **Offline mode is enforced** in the Dockerfile (`TRANSFORMERS_OFFLINE=1`, `HF_HUB_OFFLINE=1`), so the model must be present in the mounted directory.
